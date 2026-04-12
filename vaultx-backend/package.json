@@ -49,6 +49,11 @@
     "nodemon": "^3.1.4",
     "supertest": "^7.0.0"
   },
+  "overrides": {
+    "multer-gridfs-storage": {
+      "multer": "$multer"
+    }
+  },
   "jest": {
     "testEnvironment": "node",
     "testTimeout": 30000,
