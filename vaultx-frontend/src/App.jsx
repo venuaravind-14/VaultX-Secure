@@ -15,6 +15,7 @@ import { api } from './api/axios';
 // Pages - Auth
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
+import OAuthCallback from './pages/auth/OAuthCallback';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
 
@@ -111,6 +112,7 @@ function App() {
           <Route element={<AuthLayout />}>
             <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
             <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+            <Route path="/oauth-callback" element={<OAuthCallback />} />
             <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
             <Route path="/reset-password/:token" element={<PublicRoute><ResetPassword /></PublicRoute>} />
           </Route>
