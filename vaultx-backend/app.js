@@ -50,19 +50,29 @@ app.use(
 );
 
 // ── CORS: strict whitelist ─────────────────────────────────────────────────────
+const ALLOWED_ORIGINS = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  env.FRONTEND_URL,
+].filter(Boolean);
+
 app.use(
   cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (mobile apps, Postman) in development
       if (!origin && !env.IS_PRODUCTION) return callback(null, true);
-      if (origin === env.FRONTEND_URL) return callback(null, true);
-      logger.warn('CORS blocked request', { origin });
-      callback(new Error('Not allowed by CORS'));
+
+      if (ALLOWED_ORIGINS.includes(origin) || !origin) {
+        callback(null, true);
+      } else {
+        logger.warn('CORS blocked request', { origin });
+        callback(new Error('Not allowed by CORS'));
+      }
     },
-    credentials: true,           // Allow cookies
+    credentials: true, // Allow cookies
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
-    maxAge: 86400,               // Cache preflight for 24h
+    maxAge: 86400, // Cache preflight for 24h
   })
 );
 
