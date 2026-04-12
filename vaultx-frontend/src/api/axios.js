@@ -3,7 +3,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import toast from 'react-hot-toast';
 
 // Access the API URL correctly for Vite
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+const API_URL = import.meta.env.VITE_API_URL || 'https://vaultx-secure.onrender.com/api/v1';
 
 export const api = axios.create({
   baseURL: API_URL,
