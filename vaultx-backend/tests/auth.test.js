@@ -35,10 +35,10 @@ const validUser = {
 };
 
 const registerUser = (overrides = {}) =>
-  request(app).post('/api/v1/auth/register').send({ ...validUser, ...overrides });
+  request(app).post('/api/auth/register').send({ ...validUser, ...overrides });
 
 // ── Register ───────────────────────────────────────────────────────────────────
-describe('POST /api/v1/auth/register', () => {
+describe('POST /api/auth/register', () => {
   it('should register a new user and return access token', async () => {
     const res = await registerUser();
     expect(res.status).toBe(201);
@@ -76,14 +76,14 @@ describe('POST /api/v1/auth/register', () => {
 });
 
 // ── Login ──────────────────────────────────────────────────────────────────────
-describe('POST /api/v1/auth/login', () => {
+describe('POST /api/auth/login', () => {
   beforeEach(async () => {
     await registerUser();
   });
 
   it('should login with correct credentials', async () => {
     const res = await request(app)
-      .post('/api/v1/auth/login')
+      .post('/api/auth/login')
       .send({ email: validUser.email, password: validUser.password });
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveProperty('access_token');
@@ -91,7 +91,7 @@ describe('POST /api/v1/auth/login', () => {
 
   it('should reject wrong password', async () => {
     const res = await request(app)
-      .post('/api/v1/auth/login')
+      .post('/api/auth/login')
       .send({ email: validUser.email, password: 'WrongPassword@123' });
     expect(res.status).toBe(401);
     expect(res.body.message).toBe('Invalid email or password');
@@ -99,7 +99,7 @@ describe('POST /api/v1/auth/login', () => {
 
   it('should reject non-existent email with same generic message (no enumeration)', async () => {
     const res = await request(app)
-      .post('/api/v1/auth/login')
+      .post('/api/auth/login')
       .send({ email: 'ghost@example.com', password: 'SomePassword@123' });
     expect(res.status).toBe(401);
     expect(res.body.message).toBe('Invalid email or password');
@@ -109,12 +109,12 @@ describe('POST /api/v1/auth/login', () => {
     // Make 5 failed login attempts
     for (let i = 0; i < 5; i++) {
       await request(app)
-        .post('/api/v1/auth/login')
+        .post('/api/auth/login')
         .send({ email: validUser.email, password: 'WrongPass@123' });
     }
     // 6th attempt should see lockout message
     const res = await request(app)
-      .post('/api/v1/auth/login')
+      .post('/api/auth/login')
       .send({ email: validUser.email, password: validUser.password });
     expect(res.status).toBe(401);
     expect(res.body.message).toMatch(/locked/i);
@@ -122,7 +122,7 @@ describe('POST /api/v1/auth/login', () => {
 
   it('should set httpOnly cookies on successful login', async () => {
     const res = await request(app)
-      .post('/api/v1/auth/login')
+      .post('/api/auth/login')
       .send({ email: validUser.email, password: validUser.password });
     const cookies = res.headers['set-cookie'] || [];
     const cookieNames = cookies.map((c) => c.split('=')[0]);
@@ -133,43 +133,43 @@ describe('POST /api/v1/auth/login', () => {
 });
 
 // ── Get Current User ───────────────────────────────────────────────────────────
-describe('GET /api/v1/auth/me', () => {
+describe('GET /api/auth/me', () => {
   it('should return current user when authenticated', async () => {
     const reg = await registerUser();
     const token = reg.body.data.access_token;
 
     const res = await request(app)
-      .get('/api/v1/auth/me')
+      .get('/api/auth/me')
       .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
     expect(res.body.data.user.email).toBe(validUser.email);
   });
 
   it('should return 401 without a token', async () => {
-    const res = await request(app).get('/api/v1/auth/me');
+    const res = await request(app).get('/api/auth/me');
     expect(res.status).toBe(401);
   });
 
   it('should return 401 with a tampered token', async () => {
     const res = await request(app)
-      .get('/api/v1/auth/me')
+      .get('/api/auth/me')
       .set('Authorization', 'Bearer totallyinvalidtoken.xxx.yyy');
     expect(res.status).toBe(401);
   });
 });
 
 // ── Token Refresh ──────────────────────────────────────────────────────────────
-describe('POST /api/v1/auth/refresh', () => {
+describe('POST /api/auth/refresh', () => {
   it('should refresh token using cookie', async () => {
     const loginRes = await request(app)
-      .post('/api/v1/auth/login')
+      .post('/api/auth/login')
       .send({ email: validUser.email, password: validUser.password });
 
     // Extract refresh_token cookie
     const cookies = loginRes.headers['set-cookie'];
 
     const refreshRes = await request(app)
-      .post('/api/v1/auth/refresh')
+      .post('/api/auth/refresh')
       .set('Cookie', cookies);
 
     expect(refreshRes.status).toBe(200);
@@ -178,20 +178,20 @@ describe('POST /api/v1/auth/refresh', () => {
 
   it('should reject invalid refresh token', async () => {
     const res = await request(app)
-      .post('/api/v1/auth/refresh')
+      .post('/api/auth/refresh')
       .set('Cookie', ['refresh_token=badtoken']);
     expect(res.status).toBe(401);
   });
 });
 
 // ── Logout ─────────────────────────────────────────────────────────────────────
-describe('POST /api/v1/auth/logout', () => {
+describe('POST /api/auth/logout', () => {
   it('should logout and clear cookies', async () => {
     const reg = await registerUser();
     const token = reg.body.data.access_token;
 
     const res = await request(app)
-      .post('/api/v1/auth/logout')
+      .post('/api/auth/logout')
       .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
     expect(res.body.message).toMatch(/logged out/i);
@@ -202,7 +202,7 @@ describe('POST /api/v1/auth/logout', () => {
 describe('Password Reset Flow', () => {
   it('should always return 200 on forgot-password (prevent enumeration)', async () => {
     const res = await request(app)
-      .post('/api/v1/auth/forgot-password')
+      .post('/api/auth/forgot-password')
       .send({ email: 'nonexistent@example.com' });
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -210,7 +210,7 @@ describe('Password Reset Flow', () => {
 
   it('should reject reset with invalid token', async () => {
     const res = await request(app)
-      .post('/api/v1/auth/reset-password/invalidtoken')
+      .post('/api/auth/reset-password/invalidtoken')
       .send({ new_password: 'AnotherSecure@1234!' });
     expect(res.status).toBe(400);
   });
@@ -226,7 +226,7 @@ describe('PIN Management', () => {
 
   it('should set a PIN', async () => {
     const res = await request(app)
-      .post('/api/v1/auth/set-pin')
+      .post('/api/auth/set-pin')
       .set('Authorization', `Bearer ${token}`)
       .send({ pin: '123456' });
     expect(res.status).toBe(200);
@@ -234,12 +234,12 @@ describe('PIN Management', () => {
 
   it('should verify a correct PIN', async () => {
     await request(app)
-      .post('/api/v1/auth/set-pin')
+      .post('/api/auth/set-pin')
       .set('Authorization', `Bearer ${token}`)
       .send({ pin: '654321' });
 
     const res = await request(app)
-      .post('/api/v1/auth/verify-pin')
+      .post('/api/auth/verify-pin')
       .set('Authorization', `Bearer ${token}`)
       .send({ pin: '654321' });
     expect(res.status).toBe(200);
@@ -247,12 +247,12 @@ describe('PIN Management', () => {
 
   it('should reject wrong PIN', async () => {
     await request(app)
-      .post('/api/v1/auth/set-pin')
+      .post('/api/auth/set-pin')
       .set('Authorization', `Bearer ${token}`)
       .send({ pin: '111111' });
 
     const res = await request(app)
-      .post('/api/v1/auth/verify-pin')
+      .post('/api/auth/verify-pin')
       .set('Authorization', `Bearer ${token}`)
       .send({ pin: '999999' });
     expect(res.status).toBe(401);
@@ -260,7 +260,7 @@ describe('PIN Management', () => {
 
   it('should reject PIN that is not 6 digits', async () => {
     const res = await request(app)
-      .post('/api/v1/auth/set-pin')
+      .post('/api/auth/set-pin')
       .set('Authorization', `Bearer ${token}`)
       .send({ pin: '12345' }); // Only 5 digits
     expect(res.status).toBe(400);

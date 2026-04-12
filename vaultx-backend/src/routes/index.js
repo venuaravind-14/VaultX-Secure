@@ -2,7 +2,7 @@
 
 /**
  * @file index.js (routes)
- * @description Aggregates all route modules under /api/v1.
+ * @description Aggregates all route modules under /api.
  */
 
 const express = require('express');

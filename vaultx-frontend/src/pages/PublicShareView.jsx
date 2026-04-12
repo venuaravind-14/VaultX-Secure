@@ -3,7 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { Download, ShieldCheck, Lock, AlertCircle, Loader2 } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://vaultx-secure.onrender.com/api/v1';
+const API_URL = import.meta.env.VITE_API_URL || 'https://vaultx-secure.onrender.com/api';
 
 export default function PublicShareView() {
   const { token } = useParams();

@@ -137,7 +137,7 @@ function initializePassport() {
       {
         clientID: clientId,
         clientSecret: clientSecret,
-        callbackURL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5000/api/v1/auth/google/callback',
+        callbackURL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5000/api/auth/google/callback',
         scope: ['profile', 'email'],
       },
       async (accessToken, refreshToken, profile, done) => {

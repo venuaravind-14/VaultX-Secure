@@ -36,7 +36,7 @@ npm install
 ### 2. Environment Configuration
 Create a `.env` file at the root of `vaultx-frontend`:
 ```env
-VITE_API_URL=http://localhost:5000/api/v1
+VITE_API_URL=http://localhost:5000/api
 ```
 
 ### 3. Start Development Server

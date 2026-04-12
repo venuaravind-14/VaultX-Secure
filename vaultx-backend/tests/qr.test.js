@@ -22,13 +22,13 @@ beforeAll(async () => {
 
   // Register + login
   const reg = await request(app)
-    .post('/api/v1/auth/register')
+    .post('/api/auth/register')
     .send({ name: 'QR Tester', email: 'qr@example.com', password: 'QrTest@1234!' });
   accessToken = reg.body.data.access_token;
 
   // Create an ID card to generate QR against
   const card = await request(app)
-    .post('/api/v1/idcards')
+    .post('/api/idcards')
     .set('Authorization', `Bearer ${accessToken}`)
     .send({
       card_type: 'employee',
@@ -46,10 +46,10 @@ afterAll(async () => {
 });
 
 // ── Generate QR ─────────────────────────────────────────────────────────────
-describe('POST /api/v1/qr/generate', () => {
+describe('POST /api/qr/generate', () => {
   it('should generate a QR code for a valid ID card', async () => {
     const res = await request(app)
-      .post('/api/v1/qr/generate')
+      .post('/api/qr/generate')
       .set('Authorization', `Bearer ${accessToken}`)
       .send({ type: 'idcard', resource_id: idCardId });
 
@@ -64,7 +64,7 @@ describe('POST /api/v1/qr/generate', () => {
 
   it('should reject QR generation for a non-existent resource', async () => {
     const res = await request(app)
-      .post('/api/v1/qr/generate')
+      .post('/api/qr/generate')
       .set('Authorization', `Bearer ${accessToken}`)
       .send({ type: 'idcard', resource_id: '00000000-0000-0000-0000-000000000000' });
     expect(res.status).toBe(404);
@@ -72,7 +72,7 @@ describe('POST /api/v1/qr/generate', () => {
 
   it('should reject invalid resource types', async () => {
     const res = await request(app)
-      .post('/api/v1/qr/generate')
+      .post('/api/qr/generate')
       .set('Authorization', `Bearer ${accessToken}`)
       .send({ type: 'unsupported', resource_id: idCardId });
     expect(res.status).toBe(400);
@@ -80,10 +80,10 @@ describe('POST /api/v1/qr/generate', () => {
 });
 
 // ── Verify QR ───────────────────────────────────────────────────────────────
-describe('GET /api/v1/qr/verify/:token', () => {
+describe('GET /api/qr/verify/:token', () => {
   it('should explicitly verify a valid QR token and return metadata, without auth', async () => {
     const res = await request(app)
-      .get(`/api/v1/qr/verify/${qrToken}`);
+      .get(`/api/qr/verify/${qrToken}`);
       
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -97,7 +97,7 @@ describe('GET /api/v1/qr/verify/:token', () => {
 
   it('should reject an invalid or tampered QR token', async () => {
     const res = await request(app)
-      .get('/api/v1/qr/verify/invalid.jwt.token');
+      .get('/api/qr/verify/invalid.jwt.token');
     expect(res.status).toBe(401);
   });
 });

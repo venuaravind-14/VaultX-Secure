@@ -4,7 +4,7 @@ import axios from 'axios';
 import { CheckCircle2, XCircle, ShieldCheck, AlertTriangle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://vaultx-secure.onrender.com/api/v1';
+const API_URL = import.meta.env.VITE_API_URL || 'https://vaultx-secure.onrender.com/api';
 
 export default function PublicQRVerify() {
   const { token } = useParams();

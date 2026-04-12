@@ -27,7 +27,7 @@ beforeAll(async () => {
 
   // Register + login a test user
   const reg = await request(app)
-    .post('/api/v1/auth/register')
+    .post('/api/auth/register')
     .send({ name: 'File Tester', email: 'files@example.com', password: 'FileTest@1234!' });
   accessToken = reg.body.data.access_token;
 });
@@ -38,10 +38,10 @@ afterAll(async () => {
 });
 
 // ── Upload ─────────────────────────────────────────────────────────────────────
-describe('POST /api/v1/files/upload', () => {
+describe('POST /api/files/upload', () => {
   it('should upload and encrypt a text file', async () => {
     const res = await request(app)
-      .post('/api/v1/files')
+      .post('/api/files')
       .set('Authorization', `Bearer ${accessToken}`)
       .attach('file', FILE_CONTENT, { filename: 'test.txt', contentType: 'text/plain' });
 
@@ -53,14 +53,14 @@ describe('POST /api/v1/files/upload', () => {
 
   it('should reject upload without authentication', async () => {
     const res = await request(app)
-      .post('/api/v1/files')
+      .post('/api/files')
       .attach('file', FILE_CONTENT, { filename: 'test.txt', contentType: 'text/plain' });
     expect(res.status).toBe(401);
   });
 
   it('should reject disallowed MIME types', async () => {
     const res = await request(app)
-      .post('/api/v1/files')
+      .post('/api/files')
       .set('Authorization', `Bearer ${accessToken}`)
       .attach('file', FILE_CONTENT, { filename: 'script.exe', contentType: 'application/x-msdownload' });
     expect(res.status).toBe(415);
@@ -68,7 +68,7 @@ describe('POST /api/v1/files/upload', () => {
 
   it('should reject upload with no file field', async () => {
     const res = await request(app)
-      .post('/api/v1/files')
+      .post('/api/files')
       .set('Authorization', `Bearer ${accessToken}`)
       .send({});
     expect(res.status).toBe(400);
@@ -76,10 +76,10 @@ describe('POST /api/v1/files/upload', () => {
 });
 
 // ── List ───────────────────────────────────────────────────────────────────────
-describe('GET /api/v1/files', () => {
+describe('GET /api/files', () => {
   it('should return paginated list of user files', async () => {
     const res = await request(app)
-      .get('/api/v1/files')
+      .get('/api/files')
       .set('Authorization', `Bearer ${accessToken}`);
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveProperty('files');
@@ -94,12 +94,12 @@ describe('GET /api/v1/files', () => {
 });
 
 // ── Download + E2EE Roundtrip ──────────────────────────────────────────────────
-describe('GET /api/v1/files/:id (download)', () => {
+describe('GET /api/files/:id (download)', () => {
   it('should download the file and return identical plaintext (E2EE roundtrip)', async () => {
     expect(uploadedFileId).toBeDefined();
 
     const res = await request(app)
-      .get(`/api/v1/files/${uploadedFileId}`)
+      .get(`/api/files/${uploadedFileId}`)
       .set('Authorization', `Bearer ${accessToken}`)
       .buffer(true)
       .parse((res, callback) => {
@@ -119,29 +119,29 @@ describe('GET /api/v1/files/:id (download)', () => {
   it('should return 404 for a file owned by another user', async () => {
     // Register second user
     const reg2 = await request(app)
-      .post('/api/v1/auth/register')
+      .post('/api/auth/register')
       .send({ name: 'Other User', email: 'other@example.com', password: 'OtherPass@1234!' });
     const token2 = reg2.body.data.access_token;
 
     const res = await request(app)
-      .get(`/api/v1/files/${uploadedFileId}`)
+      .get(`/api/files/${uploadedFileId}`)
       .set('Authorization', `Bearer ${token2}`);
     expect(res.status).toBe(404);
   });
 
   it('should return 404 for a non-existent file ID', async () => {
     const res = await request(app)
-      .get('/api/v1/files/00000000-0000-0000-0000-000000000000')
+      .get('/api/files/00000000-0000-0000-0000-000000000000')
       .set('Authorization', `Bearer ${accessToken}`);
     expect(res.status).toBe(404);
   });
 });
 
 // ── File Info ──────────────────────────────────────────────────────────────────
-describe('GET /api/v1/files/:id/info', () => {
+describe('GET /api/files/:id/info', () => {
   it('should return file metadata without encryption secrets', async () => {
     const res = await request(app)
-      .get(`/api/v1/files/${uploadedFileId}/info`)
+      .get(`/api/files/${uploadedFileId}/info`)
       .set('Authorization', `Bearer ${accessToken}`);
     expect(res.status).toBe(200);
     expect(res.body.data.file).toHaveProperty('original_name');
@@ -152,23 +152,23 @@ describe('GET /api/v1/files/:id/info', () => {
 });
 
 // ── Soft Delete ────────────────────────────────────────────────────────────────
-describe('DELETE /api/v1/files/:id', () => {
+describe('DELETE /api/files/:id', () => {
   it('should soft-delete a file', async () => {
     const del = await request(app)
-      .delete(`/api/v1/files/${uploadedFileId}`)
+      .delete(`/api/files/${uploadedFileId}`)
       .set('Authorization', `Bearer ${accessToken}`);
     expect(del.status).toBe(200);
 
     // Deleted file should no longer appear in list
     const list = await request(app)
-      .get('/api/v1/files')
+      .get('/api/files')
       .set('Authorization', `Bearer ${accessToken}`);
     const ids = list.body.data.files.map((f) => f._id);
     expect(ids).not.toContain(uploadedFileId);
 
     // Direct download should return 404
     const dl = await request(app)
-      .get(`/api/v1/files/${uploadedFileId}`)
+      .get(`/api/files/${uploadedFileId}`)
       .set('Authorization', `Bearer ${accessToken}`);
     expect(dl.status).toBe(404);
   });
