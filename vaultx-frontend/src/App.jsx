@@ -86,8 +86,9 @@ function App() {
       }
     };
     
-    // Only attempt if not already authenticated in state
-    if (!useAuthStore.getState().isAuthenticated) {
+    // Only attempt if not already authenticated in state AND not currently handling an OAuth callback
+    const isOAuthCallback = window.location.pathname === '/oauth-callback';
+    if (!useAuthStore.getState().isAuthenticated && !isOAuthCallback) {
       restoreSession();
     }
   }, [setAuth, logout]);
