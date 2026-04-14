@@ -31,9 +31,16 @@ export default function OAuthCallback() {
 
         if (res.data?.success) {
           const user = res.data.data.user;
+          
+          // 1. Save to state (Zustand)
           setAuth(user, token);
-          toast.success(`Welcome back, ${user.name.split(' ')[0]}!`);
-          navigate('/');
+          
+          // 2. Immediate feedback
+          toast.success(`Welcome, ${user.name.split(' ')[0]}!`);
+          
+          // 3. Move to dashboard — state update is synchronous in Zustand, 
+          // so by the time "/" renders, everything is ready.
+          navigate('/', { replace: true });
         } else {
           throw new Error('Failed to fetch user profile');
         }

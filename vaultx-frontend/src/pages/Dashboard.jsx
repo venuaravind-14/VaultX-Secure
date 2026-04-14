@@ -23,11 +23,12 @@ const fetchDashboardData = async () => {
 };
 
 export default function Dashboard() {
-  const { user } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
   
   const { data, isLoading, isError } = useQuery({
     queryKey: ['dashboardData'],
     queryFn: fetchDashboardData,
+    enabled: isAuthenticated, // Only fetch when we have a confirmed session
   });
 
   if (isLoading) {

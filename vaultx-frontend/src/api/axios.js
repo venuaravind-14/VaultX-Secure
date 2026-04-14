@@ -14,8 +14,18 @@ export const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = useAuthStore.getState().accessToken;
+    const isPublicRoute = config.url.includes('/auth/login') || config.url.includes('/auth/register') || config.url.includes('/auth/refresh') || config.url.includes('/share/') || config.url.includes('/qr/verify');
+    
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else if (!isPublicRoute) {
+      // If we are trying to access a protected route without a token, 
+      // we might be in a race condition or lost session.
+      // Returning Promise.reject here stops the request before it hits the backend.
+      return Promise.reject({ 
+        message: 'No authorization token available',
+        config 
+      });
     }
     return config;
   },
