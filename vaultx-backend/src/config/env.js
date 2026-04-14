@@ -28,6 +28,13 @@ for (const key of REQUIRED_VARS) {
     }
     continue;
   }
+  if (key === 'JWT_ACCESS_SECRET') {
+    if (!process.env.JWT_ACCESS_SECRET && !process.env.JWT_SECRET) {
+      console.error('[FATAL] Missing required environment variable: JWT_ACCESS_SECRET or JWT_SECRET');
+      process.exit(1);
+    }
+    continue;
+  }
   if (!process.env[key]) {
     console.error(`[FATAL] Missing required environment variable: ${key}`);
     process.exit(1);
@@ -50,7 +57,7 @@ module.exports = {
   MONGODB_URI: process.env.MONGODB_URI,
 
   // JWT
-  JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET,
+  JWT_ACCESS_SECRET: process.env.JWT_SECRET || process.env.JWT_ACCESS_SECRET,
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET,
   JWT_ACCESS_EXPIRES_IN: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
   JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
