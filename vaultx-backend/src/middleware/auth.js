@@ -613,6 +613,123 @@ function notFound(req, res) {
 
 
 // ─────────────────────────────────────────────
+// 8. JWT TOKEN GENERATION & COOKIE HELPERS
+// ─────────────────────────────────────────────
+
+const env = require('../config/env');
+
+/**
+ * Generate a short-lived JWT access token (15 min).
+ * @param {string} userId  MongoDB _id as string
+ * @returns {string} signed JWT
+ */
+function generateAccessToken(userId) {
+  return jwt.sign(
+    { sub: userId.toString(), type: 'access' },
+    process.env.JWT_ACCESS_SECRET,
+    { expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m' }
+  );
+}
+
+/**
+ * Generate a long-lived JWT refresh token (7 days).
+ * Only the HASH of this is stored in the DB.
+ * @param {string} userId
+ * @returns {string} signed JWT
+ */
+function generateRefreshToken(userId) {
+  return jwt.sign(
+    { sub: userId.toString(), type: 'refresh' },
+    process.env.JWT_REFRESH_SECRET,
+    { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
+  );
+}
+
+/**
+ * Verify a refresh token and return decoded payload, or null on failure.
+ * @param {string} token
+ * @returns {object|null}
+ */
+function verifyRefreshToken(token) {
+  try {
+    return jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Set both access and refresh token cookies on the response.
+ * Access token: short-lived, readable by JS (needed for Authorization header).
+ * Refresh token: httpOnly, not readable by JS (CSRF-safe long-term session).
+ */
+function setAuthCookies(res, accessToken, refreshToken) {
+  const isProd = process.env.NODE_ENV === 'production';
+
+  // Refresh token — httpOnly, secure in production
+  res.cookie('refresh_token', refreshToken, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'None' : 'Lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    path: '/',
+  });
+
+  // Access token cookie (for convenience; frontend also uses Authorization header)
+  res.cookie('access_token', accessToken, {
+    httpOnly: false, // JS-readable so frontend can read and set Authorization header
+    secure: isProd,
+    sameSite: isProd ? 'None' : 'Lax',
+    maxAge: 15 * 60 * 1000, // 15 minutes
+    path: '/',
+  });
+}
+
+/**
+ * Clear both auth cookies (on logout or password change).
+ */
+function clearAuthCookies(res) {
+  const isProd = process.env.NODE_ENV === 'production';
+  const opts = { httpOnly: true, secure: isProd, sameSite: isProd ? 'None' : 'Lax', path: '/' };
+  res.clearCookie('refresh_token', opts);
+  res.clearCookie('access_token', { ...opts, httpOnly: false });
+}
+
+// ─────────────────────────────────────────────
+// 9. PASSWORD RESET TOKEN HELPERS
+// ─────────────────────────────────────────────
+
+const crypto = require('crypto');
+const RESET_SECRET = process.env.JWT_ACCESS_SECRET; // reuse access secret for HMAC
+
+/**
+ * Generate a raw password reset token and its HMAC-SHA256 hash.
+ * Only the hash is stored in the DB. Raw token goes in the email link.
+ * @returns {{ rawToken: string, tokenHash: string }}
+ */
+function generatePasswordResetToken() {
+  const rawToken = crypto.randomBytes(32).toString('hex');
+  const tokenHash = crypto
+    .createHmac('sha256', RESET_SECRET)
+    .update(rawToken)
+    .digest('hex');
+  return { rawToken, tokenHash };
+}
+
+/**
+ * Hash a raw reset token for DB lookup.
+ * @param {string} rawToken
+ * @returns {string} hex hash
+ */
+function hashPasswordResetToken(rawToken) {
+  return crypto
+    .createHmac('sha256', RESET_SECRET)
+    .update(rawToken)
+    .digest('hex');
+}
+
+
+// ─────────────────────────────────────────────
 // EXPORTS
 // ─────────────────────────────────────────────
 module.exports = {
@@ -623,6 +740,17 @@ module.exports = {
   requireOwnership,
   requirePin,
   initializePassport,
+
+  // JWT & Cookies
+  generateAccessToken,
+  generateRefreshToken,
+  verifyRefreshToken,
+  setAuthCookies,
+  clearAuthCookies,
+
+  // Password Reset
+  generatePasswordResetToken,
+  hashPasswordResetToken,
 
   // Rate limiting
   authRateLimit,

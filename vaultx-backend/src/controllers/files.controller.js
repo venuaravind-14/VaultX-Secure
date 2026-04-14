@@ -7,7 +7,7 @@
 
 const mongoose = require('mongoose');
 const { GridFSBucket } = require('mongodb');
-const { fileTypeFromBuffer } = require('file-type');
+const fileType = require('file-type');
 const { User, File, AuditLog, AUDIT_ACTIONS } = require('../models/models');
 const {
   generateFileEncryptionKey,
@@ -162,7 +162,7 @@ const downloadFile = asyncHandler(async (req, res) => {
     _id: req.params.id,
     user_id: req.user._id,
     is_deleted: false,
-  }).select('+encrypted_fek +wrap_iv +wrap_auth_tag +master_salt +iv +auth_tag');
+  }).select('+encrypted_fek +wrap_iv +wrap_auth_tag +master_salt +iv +auth_tag +gridfs_id');
 
   if (!file) {
     return sendError(res, { statusCode: 404, message: 'File not found' });

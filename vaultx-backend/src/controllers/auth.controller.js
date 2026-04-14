@@ -14,6 +14,8 @@ const {
   verifyRefreshToken,
   setAuthCookies,
   clearAuthCookies,
+  generatePasswordResetToken,
+  hashPasswordResetToken,
 } = require('../middleware/auth');
 const {
   hashPassword,

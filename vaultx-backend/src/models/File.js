@@ -53,6 +53,32 @@ const FileSchema = new mongoose.Schema(
       select: false, // Only fetch when explicitly needed
     },
     /**
+     * IV used during AES-256-GCM wrapping of the FEK.
+     * 12 bytes = 24 hex chars.
+     */
+    wrap_iv: {
+      type: String,
+      required: true,
+      select: false,
+    },
+    /**
+     * GCM auth tag from FEK wrapping operation.
+     * 16 bytes = 32 hex chars.
+     */
+    wrap_auth_tag: {
+      type: String,
+      required: true,
+      select: false,
+    },
+    /**
+     * Hex-encoded salt used to derive the master key that wrapped the FEK.
+     * 32 bytes = 64 hex chars.
+     */
+    master_salt: {
+      type: String,
+      select: false,
+    },
+    /**
      * The IV used during AES-256-GCM encryption of the file content.
      * 12 bytes (24 hex chars). Stored as hex.
      */

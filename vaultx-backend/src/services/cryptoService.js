@@ -307,7 +307,7 @@ function decryptStream(inputStream, outputStream, fek, ivHex, authTagHex) {
 // 6. SHARE LINK TOKENS  (HMAC-SHA256)
 // ─────────────────────────────────────────────
 
-const SHARE_SECRET = process.env.SHARE_LINK_SECRET;
+const SHARE_SECRET = process.env.SHARE_LINK_HMAC_SECRET || process.env.SHARE_LINK_SECRET;
 
 /**
  * Generate a secure share link token.
@@ -325,9 +325,7 @@ const SHARE_SECRET = process.env.SHARE_LINK_SECRET;
  *   tokenHash: what gets stored in MongoDB
  */
 async function generateShareToken() {
-  if (!SHARE_SECRET) throw new Error('SHARE_LINK_SECRET env variable not set');
-
-  const rawTokenBuffer = await randomBytesAsync(HMAC_TOKEN_BYTES);
+  if (!SHARE_SECRET) throw new Error('SHARE_LINK_HMAC_SECRET env variable not set');
   const rawToken       = rawTokenBuffer.toString('hex'); // 64 hex chars
 
   const tokenHash = crypto
@@ -344,7 +342,7 @@ async function generateShareToken() {
  * @returns {string} tokenHash for MongoDB query
  */
 function hashShareToken(rawToken) {
-  if (!SHARE_SECRET) throw new Error('SHARE_LINK_SECRET env variable not set');
+  if (!SHARE_SECRET) throw new Error('SHARE_LINK_HMAC_SECRET env variable not set');
 
   return crypto
     .createHmac(HMAC_ALGORITHM, SHARE_SECRET)
