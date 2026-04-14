@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../../api/axios';
@@ -19,6 +19,23 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { setAuth } = useAuthStore();
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const errorCode = searchParams.get('error');
+    if (errorCode) {
+      if (errorCode === 'email_not_provided') {
+        toast.error('Google did not provide an email address. Please try another method.');
+      } else if (errorCode === 'auth_failed') {
+        toast.error('Google authentication failed. Please try again.');
+      } else {
+        toast.error('An error occurred during Google sign-in.');
+      }
+      
+      // Clean the URL
+      navigate('/login', { replace: true });
+    }
+  }, [searchParams, navigate]);
 
   const {
     register,

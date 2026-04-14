@@ -22,6 +22,7 @@ const passport         = require('passport');
 const { Strategy: GoogleStrategy } = require('passport-google-oauth20');
 const { User, AuditLog } = require('../models/models');
 const { verifyPassword } = require('../services/cryptoService');
+const logger = require('../config/logger');
 
 // ─────────────────────────────────────────────
 // 1. JWT AUTHENTICATION MIDDLEWARE
@@ -143,27 +144,46 @@ function initializePassport() {
       async (accessToken, refreshToken, profile, done) => {
         try {
           const email = profile.emails?.[0]?.value?.toLowerCase();
-          if (!email) return done(new Error('No email returned from Google'), null);
+          
+          if (!email) {
+            logger.error('[AUTH] Google OAuth failed: No email returned', { profileId: profile.id });
+            return done(null, false, { message: 'email_not_provided' });
+          }
 
           let user = await User.findOne({ 
             $or: [{ google_id: profile.id }, { email }] 
           });
 
           if (!user) {
+            logger.info('[AUTH] Creating new Google user', { email });
             user = await User.create({
               name: profile.displayName || email.split('@')[0],
               email,
               google_id: profile.id,
               is_verified: true,
             });
-          } else if (!user.google_id) {
-            user.google_id = profile.id;
-            user.is_verified = true;
-            await user.save();
+          } else {
+            // Found user, check if we need to link google_id
+            let updated = false;
+            
+            if (!user.google_id) {
+              logger.info('[AUTH] Linking Google ID to existing email account', { email });
+              user.google_id = profile.id;
+              updated = true;
+            }
+            
+            // Auto-verify if they just logged in with Google
+            if (!user.is_verified) {
+              user.is_verified = true;
+              updated = true;
+            }
+
+            if (updated) await user.save();
           }
 
           return done(null, user);
         } catch (err) {
+          logger.error('[AUTH] Error in Google verify callback', { error: err.message, stack: err.stack });
           return done(err, null);
         }
       }
@@ -467,9 +487,12 @@ async function validateFileMime(req, res, next) {
 function errorHandler(err, req, res, next) { // eslint-disable-line no-unused-vars
   const isDev = process.env.NODE_ENV === 'development';
 
-  // Log to console (in production, replace with winston)
-  console.error(`[ERROR] ${err.name}: ${err.message}`);
-  if (isDev) console.error(err.stack);
+  // Use winston logger
+  logger.error(`[ERROR] ${err.name}: ${err.message}`, { 
+    stack: err.stack,
+    path: req.path,
+    method: req.method 
+  });
 
   // Mongoose: duplicate key (e.g. email already exists)
   if (err.code === 11000) {

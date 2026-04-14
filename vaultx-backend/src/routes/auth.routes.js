@@ -3,6 +3,7 @@
 const express = require('express');
 const passport = require('passport');
 const router = express.Router();
+const env = require('../config/env');
 
 const {
   register, login, logout, refresh, getMe,
@@ -31,7 +32,16 @@ router.get(
 );
 router.get(
   '/google/callback',
-  passport.authenticate('google', { session: false, failureRedirect: '/login' }),
+  (req, res, next) => {
+    passport.authenticate('google', { session: false }, (err, user, info) => {
+      if (err || !user) {
+        const errorCode = err ? 'auth_failed' : (info ? info.message : 'auth_failed');
+        return res.redirect(`${env.FRONTEND_URL}/login?error=${errorCode}`);
+      }
+      req.user = user;
+      next();
+    })(req, res, next);
+  },
   googleCallback
 );
 
