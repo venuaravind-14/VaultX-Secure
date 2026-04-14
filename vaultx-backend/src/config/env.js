@@ -19,10 +19,16 @@ const REQUIRED_VARS = [
   'FRONTEND_URL',
 ];
 
+// Helper to strip trailing slashes from URLs
+const normalizeUrl = (url) => (url ? url.replace(/\/+$/, '') : '');
+
+const FRONTEND_URL_RAW = process.env.CLIENT_URL || process.env.FRONTEND_URL;
+const FRONTEND_URL = normalizeUrl(FRONTEND_URL_RAW);
+
 // Validate on import — server will not start with missing secrets
 for (const key of REQUIRED_VARS) {
   if (key === 'FRONTEND_URL') {
-    if (!process.env.FRONTEND_URL && !process.env.CLIENT_URL) {
+    if (!FRONTEND_URL_RAW) {
       console.error('[FATAL] Missing required environment variable: FRONTEND_URL or CLIENT_URL');
       process.exit(1);
     }
@@ -75,7 +81,7 @@ module.exports = {
   GOOGLE_CALLBACK_URL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5000/api/auth/google/callback',
 
   // Frontend
-  FRONTEND_URL: process.env.CLIENT_URL || process.env.FRONTEND_URL,
+  FRONTEND_URL,
 
   // File Upload
   MAX_FILE_SIZE_MB: parseInt(process.env.MAX_FILE_SIZE_MB, 10) || 50,

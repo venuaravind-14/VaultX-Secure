@@ -25,6 +25,11 @@
 }
 
 @layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
   body {
     @apply antialiased bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100;
   }
