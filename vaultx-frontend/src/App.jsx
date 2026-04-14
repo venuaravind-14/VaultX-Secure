@@ -70,26 +70,18 @@ function App() {
     // Attempt to silently refresh token on app load to restore session
     const restoreSession = async () => {
       try {
-        // Send a request to get the user context if the cookie allows refresh
-        const res = await api.get('/auth/me');
-        if (res.data?.success) {
-          // This will rely on the interceptor to refresh if needed
-          // Wait, interceptor triggers on 401. If /me works, we already have a valid token (auto-injected or via cookie refresh)
-          // Wait, we need to explicitly call /refresh first if Zustand has no token but we have a cookie.
-          const currentToken = useAuthStore.getState().accessToken;
-          if (!currentToken) {
-            const refreshRes = await api.post('/auth/refresh');
-            if (refreshRes.data?.success) {
-                const newToken = refreshRes.data.data.access_token;
-                useAuthStore.getState().setAccessToken(newToken);
-                // Now get user profile
-                const meRes = await api.get('/auth/me', { headers: { Authorization: `Bearer ${newToken}` }});
-                setAuth(meRes.data.data.user, newToken);
-            }
+        const refreshRes = await api.post('/auth/refresh');
+        if (refreshRes.data?.success) {
+          const newToken = refreshRes.data.data.access_token;
+          useAuthStore.getState().setAccessToken(newToken);
+          
+          // Now fetch profile
+          const meRes = await api.get('/auth/me');
+          if (meRes.data?.success) {
+            setAuth(meRes.data.data.user, newToken);
           }
         }
       } catch (err) {
-        // If fail, ensure we are logged out
         logout();
       }
     };

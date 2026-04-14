@@ -22,6 +22,8 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+let refreshPromise = null;
+
 // Response Interceptor: Handle 401 & Auto-Refresh
 api.interceptors.response.use(
   (response) => response,
@@ -39,14 +41,20 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        // Attempt to refresh the token using the httpOnly cookie
-        const res = await axios.post(
-          `${API_URL}/auth/refresh`,
-          {},
-          { withCredentials: true }
-        );
+        // Use a lock (promise) to prevent multiple parallel refresh calls
+        if (!refreshPromise) {
+          refreshPromise = axios.post(
+            `${API_URL}/auth/refresh`,
+            {},
+            { withCredentials: true }
+          );
+        }
 
+        const res = await refreshPromise;
         const newAccessToken = res.data.data.access_token;
+        
+        // Reset promise for next time
+        refreshPromise = null;
 
         // Update Zustand store with new token
         useAuthStore.getState().setAccessToken(newAccessToken);
@@ -55,6 +63,7 @@ api.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
+        refreshPromise = null;
         // Refresh failed (e.g. refresh token expired or invalid)
         useAuthStore.getState().logout(true);
         return Promise.reject(refreshError);
