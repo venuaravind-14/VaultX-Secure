@@ -73,7 +73,7 @@ const createShareLink = asyncHandler(async (req, res) => {
   // Hash password if provided
   let password_hash = null;
   let is_password_protected = false;
-  if (password && password.trim().length >= 4) {
+  if (password && password.trim().length >= 8) {
     password_hash = await hashPassword(password);
     is_password_protected = true;
   }

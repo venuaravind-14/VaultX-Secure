@@ -53,6 +53,7 @@ const listIDCards = asyncHandler(async (req, res) => {
 
   const [cards, total] = await Promise.all([
     IDCard.find({ user_id: req.user._id })
+      .select('+card_number')
       .sort({ created_at: -1 })
       .skip(skip)
       .limit(limit),
@@ -69,7 +70,7 @@ const listIDCards = asyncHandler(async (req, res) => {
 
 // ── Get Single ID Card ─────────────────────────────────────────────────────────
 const getIDCard = asyncHandler(async (req, res) => {
-  const card = await IDCard.findOne({ _id: req.params.id, user_id: req.user._id });
+  const card = await IDCard.findOne({ _id: req.params.id, user_id: req.user._id }).select('+card_number');
   if (!card) {
     return sendError(res, { statusCode: 404, message: 'ID card not found' });
   }
@@ -89,7 +90,7 @@ const updateIDCard = asyncHandler(async (req, res) => {
   const card = await IDCard.findOneAndUpdate(
     { _id: req.params.id, user_id: req.user._id },
     updates,
-    { new: true, runValidators: true }
+    { new: true, runValidators: true, select: '+card_number' }
   );
 
   if (!card) {

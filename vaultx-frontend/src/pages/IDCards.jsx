@@ -110,7 +110,7 @@ export default function IDCards() {
 
                   <div className="flex justify-between items-start relative z-10">
                     <div className="opacity-90 uppercase tracking-widest text-xs font-bold font-mono">
-                      {card.card_type.replace('_', ' ')}
+                      {(card.card_type || 'other').replace('_', ' ')}
                     </div>
                     {/* Delete button (stop propagation so it doesn't flip card) */}
                     <button 
@@ -132,7 +132,7 @@ export default function IDCards() {
                   <div className="flex justify-between items-end pb-1 relative z-10">
                     <div className="font-mono text-sm opacity-90 tracking-widest">
                       {/* Mask except last 4 */}
-                      •••• •••• •••• {card.card_number.slice(-4)}
+                      •••• •••• •••• {(card.card_number || '0000').slice(-4)}
                     </div>
                     <div className="text-right flex flex-col items-end">
                       <span className="text-[10px] uppercase opacity-70">Exp</span>

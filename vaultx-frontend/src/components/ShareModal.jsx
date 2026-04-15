@@ -28,8 +28,8 @@ export default function ShareModal({ file, onClose }) {
     const dl = parseInt(form.download_limit, 10);
     if (isNaN(dl) || dl < 1 || dl > 100)
       errs.download_limit = 'Must be between 1 and 100';
-    if (form.usePassword && form.password.length < 4)
-      errs.password = 'Password must be at least 4 characters';
+    if (form.usePassword && form.password.length < 8)
+      errs.password = 'Password must be at least 8 characters';
     setFormErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -209,7 +209,7 @@ export default function ShareModal({ file, onClose }) {
                   <div className="mt-2">
                     <input
                       type="password"
-                      placeholder="Enter password (min 4 chars)"
+                      placeholder="Enter password (min 8 chars)"
                       value={form.password}
                       onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
                       className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 outline-none"
