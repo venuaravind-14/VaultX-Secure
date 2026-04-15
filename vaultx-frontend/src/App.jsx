@@ -9,26 +9,26 @@ import { useAuthStore } from './store/useAuthStore';
 import { useThemeStore } from './store/useThemeStore';
 
 // Layouts & Components
-import SidebarLayout from './components/SidebarLayout';
+import MainLayout from './components/layout/MainLayout';
 import ErrorBoundary from './components/ErrorBoundary';
 
 // Pages
 import Dashboard from './pages/Dashboard';
-import Login from './pages/Login';
-import Register from './pages/Register';
+import Login from './pages/auth/Login';
+import Register from './pages/auth/Register';
 import Files from './pages/Files';
 import IDCards from './pages/IDCards';
 import AddIDCard from './pages/AddIDCard';
-import Sharing from './pages/Sharing';
-import SharedFileView from './pages/SharedFileView';
 import AuditLog from './pages/AuditLog';
 import Settings from './pages/Settings';
-import OAuthCallback from './pages/OAuthCallback';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
+import PublicShareView from './pages/PublicShareView';
+import PublicQRVerify from './pages/PublicQRVerify';
+import OAuthCallback from './pages/auth/OAuthCallback';
+import ForgotPassword from './pages/auth/ForgotPassword';
+import ResetPassword from './pages/auth/ResetPassword';
 
 function App() {
-  const { setAuth, logout, isAuthenticated } = useAuthStore();
+  const { setAuth, isAuthenticated } = useAuthStore();
   const { isDarkMode } = useThemeStore();
   const [initializing, setInitializing] = useState(true);
 
@@ -45,13 +45,11 @@ function App() {
   useEffect(() => {
     const restoreSession = async () => {
       try {
-        // First, try to refresh the token using the httpOnly cookie
         const refreshRes = await api.post('/auth/refresh');
         
         if (refreshRes.data?.success) {
           const newToken = refreshRes.data.data.access_token;
           
-          // Then fetch user profile with the new token
           const userRes = await api.get('/auth/me', {
             headers: { Authorization: `Bearer ${newToken}` }
           });
@@ -61,7 +59,6 @@ function App() {
           }
         }
       } catch (err) {
-        // Silently fail restore — user stays unauthenticated
         console.warn('Session restoration failed:', err.message);
       } finally {
         setInitializing(false);
@@ -93,15 +90,15 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
           <Route path="/oauth-callback" element={<OAuthCallback />} />
-          <Route path="/share/:id" element={<SharedFileView />} />
+          <Route path="/share/:token" element={<PublicShareView />} />
+          <Route path="/qr/verify/:token" element={<PublicQRVerify />} />
 
-          {/* Protected Sidebar Routes */}
-          <Route element={isAuthenticated ? <SidebarLayout /> : <Navigate to="/login" />}>
+          {/* Protected Area */}
+          <Route element={isAuthenticated ? <MainLayout /> : <Navigate to="/login" />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/files" element={<Files />} />
             <Route path="/idcards" element={<IDCards />} />
             <Route path="/idcards/add" element={<AddIDCard />} />
-            <Route path="/sharing" element={<Sharing />} />
             <Route path="/audit" element={<AuditLog />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
