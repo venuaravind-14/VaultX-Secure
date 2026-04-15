@@ -1,168 +1,128 @@
-import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+import { Loader2 } from 'lucide-react';
 
-// Layouts
-import MainLayout from './components/layout/MainLayout';
-import AuthLayout from './components/layout/AuthLayout';
-
-// Stores & API
+// API & Store
+import { api } from './api/axios';
 import { useAuthStore } from './store/useAuthStore';
 import { useThemeStore } from './store/useThemeStore';
-import { api } from './api/axios';
 
-// Pages - Auth
-import Login from './pages/auth/Login';
-import Register from './pages/auth/Register';
-import OAuthCallback from './pages/auth/OAuthCallback';
-import ForgotPassword from './pages/auth/ForgotPassword';
-import ResetPassword from './pages/auth/ResetPassword';
+// Layouts & Components
+import SidebarLayout from './components/SidebarLayout';
+import ErrorBoundary from './components/ErrorBoundary';
 
-// Pages - Protected
+// Pages
 import Dashboard from './pages/Dashboard';
+import Login from './pages/Login';
+import Register from './pages/Register';
 import Files from './pages/Files';
 import IDCards from './pages/IDCards';
 import AddIDCard from './pages/AddIDCard';
-import Settings from './pages/Settings';
+import Sharing from './pages/Sharing';
+import SharedFileView from './pages/SharedFileView';
 import AuditLog from './pages/AuditLog';
-
-// Pages - Public Shared
-import PublicShareView from './pages/PublicShareView';
-import PublicQRVerify from './pages/PublicQRVerify';
-
-// React Query Client setup
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
-
-// Protected Route Wrapper
-const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated } = useAuthStore();
-  
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-  return children;
-};
-
-// Public Route Wrapper (prevent login/register access if already logged in)
-const PublicRoute = ({ children }) => {
-  const { isAuthenticated } = useAuthStore();
-  
-  if (isAuthenticated) {
-    return <Navigate to="/" replace />;
-  }
-  return children;
-};
+import Settings from './pages/Settings';
+import OAuthCallback from './pages/OAuthCallback';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 function App() {
-  const { setAuth, logout, lockVault, isVaultUnlocked } = useAuthStore();
-  // Ensure the theme rehydrates fully on mount
+  const { setAuth, logout, isAuthenticated } = useAuthStore();
   const { isDarkMode } = useThemeStore();
+  const [initializing, setInitializing] = useState(true);
 
+  // Apply theme to document
   useEffect(() => {
-    // ── Auto-Lock Inactivity Listener ──────────────────────────────────────────
-    let inactivityTimer;
-
-    const resetTimer = () => {
-      if (!useAuthStore.getState().isVaultUnlocked) return;
-      
-      if (inactivityTimer) clearTimeout(inactivityTimer);
-      
-      // Auto-lock after 5 minutes of no mouse/keyboard interaction
-      inactivityTimer = setTimeout(() => {
-        lockVault();
-        // Don't toast here as it might be annoying, but good for debug
-      }, 5 * 60 * 1000); 
-    };
-
-    if (isVaultUnlocked) {
-      window.addEventListener('mousemove', resetTimer);
-      window.addEventListener('keydown', resetTimer);
-      resetTimer();
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
     }
+  }, [isDarkMode]);
 
-    return () => {
-      window.removeEventListener('mousemove', resetTimer);
-      window.removeEventListener('keydown', resetTimer);
-      if (inactivityTimer) clearTimeout(inactivityTimer);
-    };
-  }, [isVaultUnlocked, lockVault]);
-
+  // Unified Session Restoration
   useEffect(() => {
-    // Attempt to silently refresh token on app load to restore session
     const restoreSession = async () => {
       try {
+        // First, try to refresh the token using the httpOnly cookie
         const refreshRes = await api.post('/auth/refresh');
+        
         if (refreshRes.data?.success) {
           const newToken = refreshRes.data.data.access_token;
-          useAuthStore.getState().setAccessToken(newToken);
           
-          // Now fetch profile
-          const meRes = await api.get('/auth/me');
-          if (meRes.data?.success) {
-            setAuth(meRes.data.data.user, newToken);
+          // Then fetch user profile with the new token
+          const userRes = await api.get('/auth/me', {
+            headers: { Authorization: `Bearer ${newToken}` }
+          });
+          
+          if (userRes.data?.success) {
+            setAuth(userRes.data.data.user, newToken);
           }
         }
       } catch (err) {
-        logout();
+        // Silently fail restore — user stays unauthenticated
+        console.warn('Session restoration failed:', err.message);
+      } finally {
+        setInitializing(false);
       }
     };
-    
-    // Only attempt if not already authenticated in state AND not currently handling an OAuth callback
-    const isOAuthCallback = window.location.pathname === '/oauth-callback';
-    if (!useAuthStore.getState().isAuthenticated && !isOAuthCallback) {
-      restoreSession();
-    }
-  }, [setAuth, logout]);
+
+    restoreSession();
+  }, [setAuth]);
+
+  if (initializing) {
+    return (
+      <div className="flex flex-col h-screen items-center justify-center bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
+        <Loader2 className="w-12 h-12 animate-spin text-primary-500 mb-4" />
+        <div className="flex flex-col items-center">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">VaultX Secure</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 font-medium animate-pulse">Establishing Secure Session...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+    <Router>
+      <ErrorBoundary>
         <Routes>
-          {/* Public Sharing & QR Verification (No Auth Needed) */}
-          <Route path="/share/:token" element={<PublicShareView />} />
-          <Route path="/qr/verify/:token" element={<PublicQRVerify />} />
+          {/* Public Routes */}
+          <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/" />} />
+          <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/" />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
+          <Route path="/oauth-callback" element={<OAuthCallback />} />
+          <Route path="/share/:id" element={<SharedFileView />} />
 
-          {/* Auth Routes */}
-          <Route element={<AuthLayout />}>
-            <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-            <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
-            <Route path="/oauth-callback" element={<OAuthCallback />} />
-            <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
-            <Route path="/reset-password/:token" element={<PublicRoute><ResetPassword /></PublicRoute>} />
-          </Route>
-
-          {/* Protected Vault Routes */}
-          <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+          {/* Protected Sidebar Routes */}
+          <Route element={isAuthenticated ? <SidebarLayout /> : <Navigate to="/login" />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/files" element={<Files />} />
             <Route path="/idcards" element={<IDCards />} />
-            <Route path="/idcards/new" element={<AddIDCard />} />
-            <Route path="/settings" element={<Settings />} />
+            <Route path="/idcards/add" element={<AddIDCard />} />
+            <Route path="/sharing" element={<Sharing />} />
             <Route path="/audit" element={<AuditLog />} />
+            <Route path="/settings" element={<Settings />} />
           </Route>
 
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          {/* Catch All */}
+          <Route path="*" element={<Navigate to="/" />} />
         </Routes>
-      </BrowserRouter>
+      </ErrorBoundary>
       <Toaster 
         position="top-right" 
         toastOptions={{
+          duration: 4000,
           style: {
-            background: isDarkMode ? '#1e293b' : '#fff',
-            color: isDarkMode ? '#f8fafc' : '#0f172a',
+            background: isDarkMode ? '#1e293b' : '#ffffff',
+            color: isDarkMode ? '#f1f5f9' : '#1e293b',
+            border: isDarkMode ? '1px solid #334155' : '1px solid #e2e8f0',
+            borderRadius: '12px',
           }
         }} 
       />
-    </QueryClientProvider>
+    </Router>
   );
 }
 

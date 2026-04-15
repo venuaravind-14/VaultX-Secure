@@ -8,9 +8,8 @@ import {
   FileSpreadsheet, Presentation, AlertCircle, RefreshCw, ShieldCheck,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { formatDistanceToNow, format } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import ShareModal from '../components/ShareModal';
-import PinModal from '../components/VaultUnlockModal';
 import { useAuthStore } from '../store/useAuthStore';
 
 // All MIME types the backend accepts
@@ -57,15 +56,10 @@ const formatBytes = (bytes) => {
 
 const getFileTypeBadge = (mimeType) => {
   if (!mimeType) return 'FILE';
-  if (mimeType === 'application/pdf') return 'PDF';
-  if (mimeType.includes('word') || mimeType === 'application/msword') return 'WORD';
-  if (mimeType.includes('excel') || mimeType.includes('spreadsheet') || mimeType === 'application/vnd.ms-excel') return 'EXCEL';
-  if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return 'PPT';
-  if (mimeType.startsWith('image/')) return mimeType.split('/')[1].toUpperCase();
-  if (mimeType.includes('zip')) return 'ZIP';
-  if (mimeType === 'text/plain') return 'TXT';
-  if (mimeType === 'text/csv') return 'CSV';
-  return mimeType.split('/').pop().toUpperCase().slice(0, 6);
+  const parts = mimeType.split('/');
+  const ext = parts.pop().toUpperCase();
+  if (ext.length > 5) return ext.slice(0, 4);
+  return ext;
 };
 
 export default function Files() {
@@ -77,21 +71,7 @@ export default function Files() {
   const [shareModalFile, setShareModalFile] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [downloadingId, setDownloadingId] = useState(null);
-  const isVaultUnlocked = useAuthStore((state) => state.isVaultUnlocked);
-  
-  // Vault PIN state
-  const [showPinModal, setShowPinModal] = useState(false);
-  const [pendingAction, setPendingAction] = useState(null);
-
-  // Helper to ensure vault is unlocked before performing sensitive actions
-  const requireVault = (action) => {
-    if (isVaultUnlocked) {
-      action();
-    } else {
-      setPendingAction(() => action);
-      setShowPinModal(true);
-    }
-  };
+  const { isAuthenticated } = useAuthStore();
 
   const {
     data: filesData,
@@ -105,6 +85,7 @@ export default function Files() {
       const res = await api.get('/files?limit=100');
       return res.data?.data?.files || [];
     },
+    enabled: !!isAuthenticated,
     staleTime: 30_000,
     retry: 2,
   });
@@ -152,40 +133,36 @@ export default function Files() {
   });
 
   const handleDownload = async (file) => {
-    requireVault(async () => {
-      setDownloadingId(file._id);
-      const toastId = toast.loading(`Decrypting "${file.original_name}"...`);
-      try {
-        const response = await api.get(`/files/${file._id}`, {
-          responseType: 'blob',
-          timeout: 120_000,
-        });
+    setDownloadingId(file._id);
+    const toastId = toast.loading(`Decrypting "${file.original_name}"...`);
+    try {
+      const response = await api.get(`/files/${file._id}`, {
+        responseType: 'blob',
+        timeout: 120_000,
+      });
 
-        const contentType = response.headers['content-type'] || file.mime_type || 'application/octet-stream';
-        const blob = new Blob([response.data], { type: contentType });
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = file.original_name;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-        toast.success('Download complete', { id: toastId });
-      } catch (err) {
-        const msg = err.response?.data?.message || 'Download failed';
-        toast.error(msg, { id: toastId });
-      } finally {
-        setDownloadingId(null);
-      }
-    });
+      const contentType = response.headers['content-type'] || file.mime_type || 'application/octet-stream';
+      const blob = new Blob([response.data], { type: contentType });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = file.original_name;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('Download complete', { id: toastId });
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Download failed';
+      toast.error(msg, { id: toastId });
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   const handleDelete = (file) => {
-    requireVault(() => {
-      if (!window.confirm(`Delete "${file.original_name}"? This cannot be undone.`)) return;
-      deleteMutation.mutate(file._id);
-    });
+    if (!window.confirm(`Delete "${file.original_name}"? This cannot be undone.`)) return;
+    deleteMutation.mutate(file._id);
   };
 
   const onDrop = useCallback((acceptedFiles, rejections) => {
@@ -194,7 +171,7 @@ export default function Files() {
       const err = rejections[0].errors[0];
       let msg = err?.message || 'Invalid file';
       if (err?.code === 'file-too-large') msg = 'File exceeds 50MB limit';
-      if (err?.code === 'file-invalid-type') msg = `File type not supported. Accepted: PDF, Word, Excel, images, ZIP`;
+      if (err?.code === 'file-invalid-type') msg = `File type not supported`;
       setUploadError(msg);
       toast.error(msg);
       return;
@@ -219,22 +196,21 @@ export default function Files() {
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <ShieldCheck className="text-primary-500" size={24} />
-            Encrypted Vault
+            Secure Files
           </h1>
           <p className="text-slate-500 dark:text-slate-400 mt-0.5 text-sm">
-            All files are AES-256-GCM encrypted before storage
+            End-to-end encrypted storage
           </p>
         </div>
         <div className="relative w-full sm:w-64">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search files..."
+            placeholder="Search artifacts..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 outline-none text-slate-900 dark:text-white"
@@ -242,7 +218,6 @@ export default function Files() {
         </div>
       </div>
 
-      {/* Drop Zone */}
       <div
         {...getRootProps()}
         className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer select-none ${
@@ -265,11 +240,8 @@ export default function Files() {
 
         {isUploading ? (
           <div>
-            <p className="font-medium text-slate-700 dark:text-slate-300">Encrypting & uploading...</p>
+            <p className="font-medium text-slate-700 dark:text-slate-300">Processing file...</p>
             <div className="mt-3 max-w-xs mx-auto">
-              <div className="flex justify-between text-xs text-slate-500 mb-1">
-                <span>Progress</span><span>{uploadProgress}%</span>
-              </div>
               <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
                 <div
                   className="bg-primary-500 h-2 rounded-full transition-all duration-300"
@@ -281,10 +253,10 @@ export default function Files() {
         ) : (
           <div>
             <p className="font-semibold text-slate-800 dark:text-white">
-              {isDragReject ? 'File type not supported' : isDragActive ? 'Drop to encrypt & upload' : 'Drop files here or click to browse'}
+              {isDragReject ? 'Format not allowed' : isDragActive ? 'Release to upload' : 'Click or drag files to encrypt'}
             </p>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              PDF, Word (.doc/.docx), Excel (.xls/.xlsx), PowerPoint, Images, ZIP — up to 50MB
+              Supports PDF, Word, Excel, Images, and ZIP (Max 50MB)
             </p>
           </div>
         )}
@@ -297,124 +269,65 @@ export default function Files() {
         )}
       </div>
 
-      {/* File List */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-        {/* List header */}
-        <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
-          <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
-            {isLoading ? 'Loading...' : `${filteredFiles.length} file${filteredFiles.length !== 1 ? 's' : ''}`}
-            {searchTerm && ` matching "${searchTerm}"`}
+        <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/20">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+            {isLoading ? 'Scanning Vault...' : `${filteredFiles.length} Artifact${filteredFiles.length !== 1 ? 's' : ''} Secured`}
           </p>
           {!isLoading && (
             <button
               onClick={() => refetch()}
-              className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-              title="Refresh"
+              className="p-1.5 text-slate-400 hover:text-primary-500 rounded-lg transition-colors"
             >
-              <RefreshCw size={15} />
+              <RefreshCw size={14} />
             </button>
           )}
         </div>
 
-        {isLoading && (
-          <div className="flex justify-center items-center h-40">
+        {isLoading ? (
+          <div className="flex justify-center items-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
           </div>
-        )}
-
-        {isError && !isLoading && (
-          <div className="flex flex-col items-center justify-center h-40 gap-3">
+        ) : isError ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
             <AlertCircle className="text-red-400 w-10 h-10" />
-            <p className="text-sm text-slate-600 dark:text-slate-400">
-              {error?.response?.data?.message || 'Failed to load files'}
-            </p>
-            <button
-              onClick={() => refetch()}
-              className="text-sm text-primary-600 dark:text-primary-400 underline"
-            >
-              Try again
-            </button>
+            <p className="text-sm text-slate-500">{error?.response?.data?.message || 'Sync failed'}</p>
+            <button onClick={() => refetch()} className="text-sm text-primary-500 font-bold">Try Refreshing</button>
           </div>
-        )}
-
-        {!isLoading && !isError && filteredFiles.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-48 text-slate-500 dark:text-slate-400">
-            <FileGeneric className="w-12 h-12 mb-3 opacity-30" />
-            <p className="font-medium text-slate-700 dark:text-slate-300">
-              {searchTerm ? 'No files match your search' : 'Your vault is empty'}
-            </p>
-            <p className="text-sm mt-1">
-              {searchTerm ? `Try a different search term` : 'Upload your first file above'}
-            </p>
+        ) : filteredFiles.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+            <FileGeneric className="w-12 h-12 mb-3 opacity-20" />
+            <p className="font-medium">No encrypted files in this sector</p>
           </div>
-        )}
-
-        {!isLoading && !isError && filteredFiles.length > 0 && (
+        ) : (
           <ul className="divide-y divide-slate-100 dark:divide-slate-700/40">
             {filteredFiles.map(file => (
-              <li
-                key={file._id}
-                className="px-4 py-3.5 hover:bg-slate-50 dark:hover:bg-slate-700/20 transition-colors group flex items-center justify-between gap-4"
-              >
-                {/* File info */}
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="w-10 h-10 bg-slate-100 dark:bg-slate-700 rounded-xl flex items-center justify-center flex-shrink-0">
+              <li key={file._id} className="px-4 py-3.5 hover:bg-slate-50 dark:hover:bg-slate-700/20 transition-colors flex items-center justify-between gap-4 group">
+                <div className="flex items-center gap-4 min-w-0 flex-1">
+                  <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
                     {getFileIcon(file.mime_type)}
                   </div>
                   <div className="min-w-0">
-                    <p
-                      className="text-sm font-medium text-slate-900 dark:text-white truncate"
-                      title={file.original_name}
-                    >
-                      {file.original_name}
-                    </p>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 dark:bg-slate-700 dark:text-slate-400 px-1.5 py-0.5 rounded">
-                        {getFileTypeBadge(file.mime_type)}
-                      </span>
-                      <span className="text-xs text-slate-400">{formatBytes(file.size_bytes)}</span>
-                      <span className="text-xs text-slate-400 hidden sm:inline">
-                        {formatDistanceToNow(new Date(file.created_at), { addSuffix: true })}
-                      </span>
+                    <p className="text-sm font-bold text-slate-900 dark:text-white truncate lg:max-w-md">{file.original_name}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">{getFileTypeBadge(file.mime_type)}</span>
+                      <span className="text-[10px] text-slate-400">•</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{formatBytes(file.size_bytes)}</span>
+                      <span className="text-[10px] text-slate-400">•</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{formatDistanceToNow(new Date(file.created_at), { addSuffix: true })}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Actions */}
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  {/* Download */}
-                  <button
-                    onClick={() => handleDownload(file)}
-                    disabled={downloadingId === file._id}
-                    title="Download & decrypt"
-                    className="p-2 text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    {downloadingId === file._id
-                      ? <Loader2 size={15} className="animate-spin" />
-                      : <Download size={15} />
-                    }
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 lg:opacity-100 transition-opacity">
+                  <button onClick={() => handleDownload(file)} disabled={!!downloadingId} className="p-2 text-slate-400 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded-xl">
+                    {downloadingId === file._id ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
                   </button>
-
-                  {/* Share */}
-                  <button
-                    onClick={() => requireVault(() => setShareModalFile(file))}
-                    title="Generate share link"
-                    className="p-2 text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/30 rounded-lg transition-colors"
-                  >
-                    <Share2 size={15} />
+                  <button onClick={() => setShareModalFile(file)} className="p-2 text-slate-400 hover:text-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/30 rounded-xl">
+                    <Share2 size={16} />
                   </button>
-
-                  {/* Delete */}
-                  <button
-                    onClick={() => handleDelete(file)}
-                    disabled={deletingId === file._id}
-                    title="Delete file"
-                    className="p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    {deletingId === file._id
-                      ? <Loader2 size={15} className="animate-spin" />
-                      : <Trash2 size={15} />
-                    }
+                  <button onClick={() => handleDelete(file)} disabled={!!deletingId} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl">
+                    {deletingId === file._id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                   </button>
                 </div>
               </li>
@@ -423,28 +336,7 @@ export default function Files() {
         )}
       </div>
 
-      {shareModalFile && (
-        <ShareModal
-          file={shareModalFile}
-          onClose={() => setShareModalFile(null)}
-        />
-      )}
-
-      {showPinModal && (
-        <PinModal
-          onSuccess={() => {
-            setShowPinModal(false);
-            if (pendingAction) {
-              pendingAction();
-              setPendingAction(null);
-            }
-          }}
-          onClose={() => {
-            setShowPinModal(false);
-            setPendingAction(null);
-          }}
-        />
-      )}
+      {shareModalFile && <ShareModal file={shareModalFile} onClose={() => setShareModalFile(null)} />}
     </div>
   );
 }

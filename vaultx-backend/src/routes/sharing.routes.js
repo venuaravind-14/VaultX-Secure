@@ -10,7 +10,7 @@ const {
   accessShareLink,
   getShareLinkInfo,
 } = require('../controllers/sharing.controller');
-const { protect, protectVault, shareLinkRateLimit } = require('../middleware/auth');
+const { protect, shareLinkRateLimit } = require('../middleware/auth');
 const {
   validateCreateShareLink,
   validatePagination,
@@ -27,7 +27,7 @@ router.post('/access/:token', shareLinkRateLimit, accessShareLink);
 
 // ── Protected routes (authenticated users) ────────────────────────────────────
 router.use(protect);
-router.post('/',      validateCreateShareLink, protectVault, createShareLink);
+router.post('/',      validateCreateShareLink, createShareLink);
 router.get('/',       validatePagination, listShareLinks);
 router.delete('/:id', revokeShareLink);
 
