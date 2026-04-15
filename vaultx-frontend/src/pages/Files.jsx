@@ -10,7 +10,7 @@ import {
 import toast from 'react-hot-toast';
 import { formatDistanceToNow, format } from 'date-fns';
 import ShareModal from '../components/ShareModal';
-import PinModal from '../components/PinModal';
+import PinModal from '../components/VaultUnlockModal';
 import { useAuthStore } from '../store/useAuthStore';
 
 // All MIME types the backend accepts

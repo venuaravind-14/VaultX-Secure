@@ -66,17 +66,6 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
 
         {/* Bottom Actions */}
         <div className="p-4 border-t border-slate-200 dark:border-slate-700 flex-shrink-0 w-full">
-          {/* Storage usage dummy bar */}
-          <div className="mb-4 px-2">
-            <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
-              <span>Storage</span>
-              <span>15%</span>
-            </div>
-            <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-              <div className="h-full bg-primary-500 rounded-full" style={{ width: '15%' }} />
-            </div>
-          </div>
-          
           <button 
             onClick={handleLogout}
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium w-full text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-900/20 transition-colors"

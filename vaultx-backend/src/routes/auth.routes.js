@@ -8,14 +8,14 @@ const env = require('../config/env');
 const {
   register, login, logout, refresh, getMe,
   changePassword, forgotPassword, resetPassword,
-  setPin, verifyPin, googleCallback,
+  googleCallback, unlockVault,
 } = require('../controllers/auth.controller');
 const { protect } = require('../middleware/auth');
 const { authLimiter, authSlowDown } = require('../middleware/rateLimit');
 const {
   validateRegister, validateLogin, validateChangePassword,
   validateForgotPassword, validateResetPassword,
-  validateSetPin, validateVerifyPin,
+  validateUnlockVault,
 } = require('../middleware/validate');
 
 // ── Public Routes (rate-limited) ───────────────────────────────────────────────
@@ -49,7 +49,6 @@ router.get(
 router.post('/logout',          protect, logout);
 router.get('/me',               protect, getMe);
 router.post('/change-password', protect, validateChangePassword, changePassword);
-router.post('/set-pin',         protect, validateSetPin,   setPin);
-router.post('/verify-pin',      protect, validateVerifyPin, verifyPin);
+router.post('/unlock-vault',    protect, validateUnlockVault,    unlockVault);
 
 module.exports = router;

@@ -7,7 +7,7 @@ import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import QRCode from 'react-qr-code';
 import { useAuthStore } from '../store/useAuthStore';
-import PinModal from '../components/PinModal';
+import VaultUnlockModal from '../components/VaultUnlockModal';
 
 export default function IDCards() {
   const queryClient = useQueryClient();
@@ -188,7 +188,7 @@ export default function IDCards() {
       )}
 
       {showPinModal && (
-        <PinModal
+        <VaultUnlockModal
           onSuccess={() => {
             setShowPinModal(false);
           }}

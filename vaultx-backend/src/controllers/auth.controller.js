@@ -32,6 +32,7 @@ const logger = require('../config/logger');
 // Lockout policy constants (moved from model logic to controller for explicit control)
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+const authService = require('../services/auth.service');
 
 // ── Audit Helper ───────────────────────────────────────────────────────────────
 const audit = (action, userId, req, success, metadata = {}) => {
@@ -49,116 +50,72 @@ const audit = (action, userId, req, success, metadata = {}) => {
 const register = asyncHandler(async (req, res) => {
   const { name, email, password } = req.body;
 
-  // Check for duplicate email
-  const existing = await User.findOne({ email: email.toLowerCase() });
-  if (existing) {
-    return sendError(res, { statusCode: 409, message: 'An account with this email already exists' });
+  try {
+    const user = await authService.registerUser({ name, email, password });
+    
+    audit(AUDIT_ACTIONS.REGISTER, user._id, req, true, { email });
+    sendWelcomeEmail(email, name);
+
+    const accessToken = generateAccessToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
+
+    // Refresh token hash update (logic stays in service or helper)
+    user.refresh_token_hash = await hashPassword(refreshToken);
+    await user.save();
+
+    setAuthCookies(res, accessToken, refreshToken);
+
+    return sendSuccess(res, {
+      statusCode: 201,
+      message: 'Secure account created successfully',
+      data: { user: user.toJSON(), access_token: accessToken },
+    });
+  } catch (err) {
+    if (err.message === 'ALREADY_EXISTS') {
+      return sendError(res, { statusCode: 409, message: 'An account with this email already exists' });
+    }
+    throw err;
   }
-
-  // Hash password with argon2id via cryptoService
-  const password_hash = await hashPassword(password);
-
-  // Generate PBKDF2 salt for future master key derivations
-  const pbkdf2_salt = await generateSalt();
-
-  const user = await User.create({
-    name,
-    email: email.toLowerCase(),
-    password_hash,
-    pbkdf2_salt,
-    is_verified: false,
-  });
-
-  audit(AUDIT_ACTIONS.REGISTER, user._id, req, true, { email });
-  sendWelcomeEmail(email, name); // Non-blocking
-
-  const accessToken = generateAccessToken(user._id);
-  const refreshToken = generateRefreshToken(user._id);
-
-  // Store hashed refresh token in DB
-  const refreshTokenHash = await hashPassword(refreshToken);
-  await User.findByIdAndUpdate(user._id, { refresh_token_hash: refreshTokenHash });
-
-  setAuthCookies(res, accessToken, refreshToken);
-
-  return sendSuccess(res, {
-    statusCode: 201,
-    message: 'Account created successfully',
-    data: {
-      user: user.toJSON(),
-      access_token: accessToken,
-    },
-  });
 });
 
+// ── Login ─────────────────────────────────────────────────────────────────────
 // ── Login ─────────────────────────────────────────────────────────────────────
 const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
-  // Fetch user WITH sensitive fields explicitly
-  const user = await User.findOne({ email: email.toLowerCase() })
-    .select('+password_hash +failed_login_attempts +locked_until +refresh_token_hash');
-
-  // ── Account Lockout Check ──────────────────────────────────────────────────
-  if (user && user.locked_until && user.locked_until > new Date()) {
-    audit(AUDIT_ACTIONS.LOGIN_FAILED, user._id, req, false, { reason: 'account_locked' });
-    return sendError(res, {
-      statusCode: 401,
-      message: `Account locked. Try again after ${user.locked_until.toISOString()}`,
-    });
-  }
-
-  // ── Constant-Time Password Verification ───────────────────────────────────
-  // We always run argon2.verify even if user doesn't exist to prevent timing attacks.
-  // A dummy hash is used for non-existent accounts.
-  const DUMMY_HASH = '$argon2id$v=19$m=65536,t=3,p=4$dummysalt12345678901234$dummyhash123456789012345678901234567';
-  const hashToVerify = user ? user.password_hash : DUMMY_HASH;
-
-  let passwordValid = false;
   try {
-    passwordValid = await verifyPassword(hashToVerify, password);
-  } catch {
-    passwordValid = false;
-  }
-
-  if (!user || !passwordValid) {
-    // Increment failed attempts if user exists
-    if (user) {
-      const newAttempts = (user.failed_login_attempts || 0) + 1;
-      const updateData = { failed_login_attempts: newAttempts };
-
-      if (newAttempts >= MAX_FAILED_ATTEMPTS) {
-        updateData.locked_until = new Date(Date.now() + LOCKOUT_DURATION_MS);
-        updateData.failed_login_attempts = 0;
-        audit(AUDIT_ACTIONS.ACCOUNT_LOCKED, user._id, req, false, {
-          locked_until: updateData.locked_until,
-        });
-      } else {
-        audit(AUDIT_ACTIONS.LOGIN_FAILED, user._id, req, false, {
-          attempts: newAttempts,
-        });
-      }
-
-      await User.findByIdAndUpdate(user._id, updateData);
+    const user = await authService.validateCredentials(email, password);
+    
+    if (!user) {
+      audit(AUDIT_ACTIONS.LOGIN_FAIL, null, req, false, { email, reason: 'invalid_credentials' });
+      return sendError(res, { statusCode: 401, message: 'Invalid email or password' });
     }
 
-    // Generic message to prevent user enumeration
-    return sendError(res, { statusCode: 401, message: 'Invalid email or password' });
+    audit(AUDIT_ACTIONS.LOGIN, user._id, req, true);
+
+    const accessToken = generateAccessToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
+
+    user.refresh_token_hash = await hashPassword(refreshToken);
+    await user.save();
+
+    setAuthCookies(res, accessToken, refreshToken);
+
+    return sendSuccess(res, {
+      message: 'Login successful',
+      data: { user: user.toJSON(), access_token: accessToken },
+    });
+  } catch (err) {
+    if (err.message === 'ACCOUNT_LOCKED') {
+      audit(AUDIT_ACTIONS.LOGIN_FAIL, null, req, false, { email, reason: 'account_locked' });
+      return sendError(res, { 
+        statusCode: 423, 
+        message: 'Account temporarily locked due to many failed attempts. Try again in 15 minutes.' 
+      });
+    }
+    throw err;
   }
-
-  // ── Successful Login ───────────────────────────────────────────────────────
-  const accessToken = generateAccessToken(user._id);
-  const refreshToken = generateRefreshToken(user._id);
-
-  // Hash + store new refresh token, reset lockout counters
-  const refreshTokenHash = await hashPassword(refreshToken);
-  await User.findByIdAndUpdate(user._id, {
-    refresh_token_hash: refreshTokenHash,
-    failed_login_attempts: 0,
-    locked_until: null,
-  });
-
-  audit(AUDIT_ACTIONS.LOGIN, user._id, req, true);
+});
   setAuthCookies(res, accessToken, refreshToken);
 
   return sendSuccess(res, {
@@ -327,37 +284,36 @@ const resetPassword = asyncHandler(async (req, res) => {
 });
 
 // ── Set PIN ───────────────────────────────────────────────────────────────────
-const setPin = asyncHandler(async (req, res) => {
-  const { pin } = req.body;
+// ── Change Password ───────────────────────────────────────────────────────────
+const changePassword = asyncHandler(async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
 
-  const pinHash = await hashPassword(pin);
-  await User.findByIdAndUpdate(req.user._id, { pin_hash: pinHash });
-
-  audit(AUDIT_ACTIONS.PIN_SET, req.user._id, req, true);
-  return sendSuccess(res, { message: 'PIN set successfully' });
+  try {
+    await authService.changeUserPassword(req.user._id, oldPassword, newPassword);
+    audit(AUDIT_ACTIONS.PASSWORD_CHANGE, req.user._id, req, true);
+    return sendSuccess(res, { message: 'Password changed successfully' });
+  } catch (err) {
+    if (err.message === 'INVALID_CURRENT_PASSWORD') {
+      audit(AUDIT_ACTIONS.PASSWORD_CHANGE_FAIL, req.user._id, req, false);
+      return sendError(res, { statusCode: 401, message: 'Invalid current password' });
+    }
+    throw err;
+  }
 });
 
-// ── Verify PIN ────────────────────────────────────────────────────────────────
-const verifyPin = asyncHandler(async (req, res) => {
-  const { pin } = req.body;
+// ── Unlock Vault (Secure Password Proof) ──────────────────────────────────────
+const unlockVault = asyncHandler(async (req, res) => {
+  const { password } = req.body;
 
-  const user = await User.findById(req.user._id).select('+pin_hash');
-  if (!user.pin_hash) {
-    return sendError(res, { statusCode: 400, message: 'No PIN has been set for this account' });
+  const vaultToken = await authService.unlockVault(req.user._id, password);
+  audit(AUDIT_ACTIONS.VAULT_UNLOCK, req.user._id, req, !!vaultToken);
+
+  if (!vaultToken) {
+    return sendError(res, { statusCode: 401, message: 'Incorrect password. Access denied.' });
   }
-
-  const isValid = await verifyPassword(user.pin_hash, pin);
-  audit(AUDIT_ACTIONS.PIN_VERIFIED, req.user._id, req, isValid);
-
-  if (!isValid) {
-    return sendError(res, { statusCode: 401, message: 'Incorrect PIN' });
-  }
-
-  // Generate short-lived vault access token (5 mins)
-  const vaultToken = generateVaultToken(user._id);
 
   return sendSuccess(res, { 
-    message: 'PIN verified successfully',
+    message: 'Vault unlocked successfully',
     data: { vault_token: vaultToken }
   });
 });
@@ -390,7 +346,6 @@ module.exports = {
   changePassword,
   forgotPassword,
   resetPassword,
-  setPin,
-  verifyPin,
   googleCallback,
+  unlockVault,
 };

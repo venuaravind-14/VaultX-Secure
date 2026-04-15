@@ -299,7 +299,7 @@ const IDCardSchema = new Schema(
     card_type: {
       type: String,
       required: true,
-      enum: ['student', 'bus', 'employee', 'national_id', 'library', 'gym', 'other'],
+      enum: ['student', 'employee', 'driver_license', 'passport', 'national_id', 'other'],
     },
 
     card_holder_name: {

@@ -55,8 +55,13 @@ const validateLogin = [
 ];
 
 const validateChangePassword = [
-  body('current_password').notEmpty().withMessage('Current password is required'),
-  passwordStrengthRule('new_password'),
+  body('oldPassword').notEmpty().withMessage('Current password is required'),
+  passwordStrengthRule('newPassword'),
+  handleValidationErrors,
+];
+
+const validateUnlockVault = [
+  body('password').notEmpty().withMessage('Password is required'),
   handleValidationErrors,
 ];
 
@@ -71,29 +76,12 @@ const validateResetPassword = [
   handleValidationErrors,
 ];
 
-const validateSetPin = [
-  body('pin')
-    .isLength({ min: 6, max: 6 })
-    .withMessage('PIN must be exactly 6 digits')
-    .isNumeric()
-    .withMessage('PIN must contain only digits'),
-  handleValidationErrors,
-];
-
-const validateVerifyPin = [
-  body('pin')
-    .isLength({ min: 6, max: 6 })
-    .withMessage('PIN must be exactly 6 digits')
-    .isNumeric()
-    .withMessage('PIN must contain only digits'),
-  handleValidationErrors,
-];
 
 // ── ID Card Validators ─────────────────────────────────────────────────────────
 const validateCreateIDCard = [
   body('card_type')
-    .isIn(['student', 'bus', 'employee', 'other'])
-    .withMessage('card_type must be one of: student, bus, employee, other'),
+    .isIn(['student', 'employee', 'driver_license', 'passport', 'national_id', 'other'])
+    .withMessage('card_type must be one of: student, employee, driver_license, passport, national_id, other'),
   body('card_holder_name').trim().notEmpty().withMessage('card_holder_name is required').isLength({ max: 200 }),
   body('card_number').trim().notEmpty().withMessage('card_number is required').isLength({ max: 100 }),
   body('issuer').trim().notEmpty().withMessage('issuer is required').isLength({ max: 200 }),
@@ -151,10 +139,9 @@ module.exports = {
   validateRegister,
   validateLogin,
   validateChangePassword,
+  validateUnlockVault,
   validateForgotPassword,
   validateResetPassword,
-  validateSetPin,
-  validateVerifyPin,
   validateCreateIDCard,
   validateUpdateIDCard,
   validateCreateShareLink,

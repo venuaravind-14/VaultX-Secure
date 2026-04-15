@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 import { api } from '../api/axios';
 
 const idCardSchema = z.object({
-  card_type: z.enum(['employee', 'student', 'driver_license', 'passport', 'other']),
+  card_type: z.enum(['employee', 'student', 'driver_license', 'passport', 'national_id', 'other']),
   card_holder_name: z.string().min(2, 'Name must be at least 2 characters'),
   card_number: z.string().min(4, 'Card number is too short').max(20, 'Card number is too long'),
   issuer: z.string().min(2, 'Issuer name is required'),
@@ -71,6 +71,7 @@ export default function AddIDCard() {
               <option value="student">Student ID</option>
               <option value="driver_license">Driver's License</option>
               <option value="passport">Passport</option>
+              <option value="national_id">National ID Card</option>
               <option value="other">Other Identity Card</option>
             </select>
             {errors.card_type && <p className="text-danger-500 text-xs mt-1">{errors.card_type.message}</p>}
