@@ -2,6 +2,7 @@
 
 /**
  * @file server.js
+ * @version 2026-04-15.1
  * @description HTTP server entry point.
  * Connects to MongoDB, then starts Express. Handles graceful shutdown.
  */
