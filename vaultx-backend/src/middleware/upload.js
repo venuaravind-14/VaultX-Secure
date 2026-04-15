@@ -1,89 +1,132 @@
 'use strict';
 
 /**
- * @file upload.js
- * @description Multer configuration with in-memory storage for pre-encryption.
+ * upload.js — Multer config for file uploads.
  *
- * DESIGN DECISION: We use memoryStorage (not GridFS storage directly) so that
- * we can encrypt the file buffer BEFORE writing to GridFS. This ensures that
- * GridFS only ever contains ciphertext, never plaintext.
+ * Uses memoryStorage so files can be AES-256-GCM encrypted BEFORE
+ * writing to GridFS. GridFS never sees plaintext.
  *
- * Flow: Client → Multer (memory) → cryptoService.encryptFile() → GridFS write
+ * MIME whitelist covers all common document/image/archive types.
+ * Office files (.docx, .xlsx) use OOXML MIME types which browsers
+ * report correctly when using file input elements.
  */
 
 const multer = require('multer');
-const env = require('../config/env');
 const { sendError } = require('../utils/apiResponse');
 
-// Allowed MIME types (whitelist — reject everything else)
-const ALLOWED_MIME_TYPES = new Set(env.ALLOWED_MIME_TYPES);
+// Complete MIME whitelist — all types users would realistically upload
+const ALLOWED_MIME_TYPES = new Set([
+  // Images
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'image/svg+xml',
 
-// ── Multer Memory Storage ──────────────────────────────────────────────────────
+  // Documents
+  'application/pdf',
+  'text/plain',
+  'text/csv',
+  'application/rtf',
+
+  // Microsoft Office (modern OOXML)
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',   // .docx
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',         // .xlsx
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+
+  // Microsoft Office (legacy binary)
+  'application/msword',                                                          // .doc
+  'application/vnd.ms-excel',                                                    // .xls
+  'application/vnd.ms-powerpoint',                                               // .ppt
+
+  // Archives
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/x-rar-compressed',
+  'application/x-7z-compressed',
+]);
+
+const MAX_FILE_SIZE_MB = parseInt(process.env.MAX_FILE_SIZE_MB, 10) || 50;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+
 const storage = multer.memoryStorage();
 
-/**
- * MIME type + extension validation filter.
- * NOTE: file-type library (magic bytes check) is applied in the controller
- * AFTER multer, where we have the buffer available.
- * This filter is a first-pass based on the Content-Type header.
- */
 const fileFilter = (req, file, cb) => {
-  if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
+  // Normalize MIME type (some browsers send 'image/jpg' instead of 'image/jpeg')
+  const mime = file.mimetype?.toLowerCase().trim() || '';
+
+  if (!mime) {
+    return cb(Object.assign(new Error('File has no MIME type'), { statusCode: 400 }), false);
+  }
+
+  if (!ALLOWED_MIME_TYPES.has(mime)) {
     return cb(
-      Object.assign(new Error(`File type '${file.mimetype}' is not allowed`), {
-        statusCode: 415,
-      }),
+      Object.assign(
+        new Error(`File type "${mime}" is not allowed. Supported: PDF, Word, Excel, images, ZIP`),
+        { statusCode: 415 }
+      ),
       false
     );
   }
+
   cb(null, true);
 };
 
-// ── Upload Middleware ──────────────────────────────────────────────────────────
-
-/** Single file upload — field name: 'file' */
-const uploadSingle = multer({
+const uploadSingleRaw = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: env.MAX_FILE_SIZE_BYTES,
+    fileSize: MAX_FILE_SIZE_BYTES,
     files: 1,
-    fields: 5,
+    fields: 10,
   },
 }).single('file');
 
-/** ID card image upload — field name: 'card_image' */
-const uploadCardImage = multer({
+const uploadCardImageRaw = multer({
   storage,
   fileFilter: (req, file, cb) => {
-    const imageTypes = new Set(['image/jpeg', 'image/png']);
-    if (!imageTypes.has(file.mimetype)) {
-      return cb(new Error('Card image must be JPEG or PNG'), false);
+    const imageTypes = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
+    const mime = file.mimetype?.toLowerCase().trim() || '';
+    if (!imageTypes.has(mime)) {
+      return cb(new Error('Card image must be JPEG, PNG, or WebP'), false);
     }
     cb(null, true);
   },
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB max for card images
-    files: 1,
-  },
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
 }).single('card_image');
 
 /**
- * Wraps multer middleware to forward errors to express error handler.
- * Multer's own error callback doesn't call next(err) by default.
+ * Wraps multer to forward errors to Express error handler with proper status codes.
+ * Without this, multer errors don't reach the centralized errorHandler.
  */
 const handleUpload = (multerMiddleware) => (req, res, next) => {
   multerMiddleware(req, res, (err) => {
-    if (err) {
-      // Attach status code if multer doesn't provide one
-      if (!err.statusCode) err.statusCode = 400;
-      return next(err);
+    if (!err) return next();
+
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return sendError(res, {
+        statusCode: 413,
+        message: `File too large. Maximum size is ${MAX_FILE_SIZE_MB}MB`,
+      });
     }
-    next();
+
+    if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+      return sendError(res, {
+        statusCode: 400,
+        message: 'Unexpected file field. Use field name "file".',
+      });
+    }
+
+    return sendError(res, {
+      statusCode: err.statusCode || 400,
+      message: err.message || 'File upload failed',
+    });
   });
 };
 
 module.exports = {
-  uploadSingle: handleUpload(uploadSingle),
-  uploadCardImage: handleUpload(uploadCardImage),
+  uploadSingle: handleUpload(uploadSingleRaw),
+  uploadCardImage: handleUpload(uploadCardImageRaw),
+  ALLOWED_MIME_TYPES,
 };

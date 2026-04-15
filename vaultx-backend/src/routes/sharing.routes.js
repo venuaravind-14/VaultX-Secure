@@ -4,21 +4,32 @@ const express = require('express');
 const router = express.Router();
 
 const {
-  createShareLink, listShareLinks, revokeShareLink, accessShareLink,
+  createShareLink,
+  listShareLinks,
+  revokeShareLink,
+  accessShareLink,
+  getShareLinkInfo,
 } = require('../controllers/sharing.controller');
 const { protect } = require('../middleware/auth');
-const { shareLimiter } = require('../middleware/rateLimit');
+const { shareLinkRateLimit } = require('../middleware/auth');
 const {
-  validateCreateShareLink, validateAccessShareLink, validatePagination,
+  validateCreateShareLink,
+  validatePagination,
 } = require('../middleware/validate');
 
-// Public share access — rate-limited per IP
-router.get('/access/:token', shareLimiter, validateAccessShareLink, accessShareLink);
+// ── Public routes (no auth, rate-limited) ─────────────────────────────────────
+// GET /sharing/access/:token?link_id=<id>   — download the shared file
+// GET /sharing/info/:token?link_id=<id>     — get metadata without downloading
+router.get('/access/:token', shareLinkRateLimit, accessShareLink);
+router.get('/info/:token',   shareLinkRateLimit, getShareLinkInfo);
 
-// Protected routes — authenticated users manage their own links
+// POST /sharing/access/:token?link_id=<id>  — same as GET but with password in body
+router.post('/access/:token', shareLinkRateLimit, accessShareLink);
+
+// ── Protected routes (authenticated users) ────────────────────────────────────
 router.use(protect);
 router.post('/',      validateCreateShareLink, createShareLink);
-router.get('/',       validatePagination,      listShareLinks);
+router.get('/',       validatePagination, listShareLinks);
 router.delete('/:id', revokeShareLink);
 
 module.exports = router;
