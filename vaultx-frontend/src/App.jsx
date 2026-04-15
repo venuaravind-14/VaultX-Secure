@@ -62,9 +62,38 @@ const PublicRoute = ({ children }) => {
 };
 
 function App() {
-  const { setAuth, logout } = useAuthStore();
+  const { setAuth, logout, lockVault, isVaultUnlocked } = useAuthStore();
   // Ensure the theme rehydrates fully on mount
   const { isDarkMode } = useThemeStore();
+
+  useEffect(() => {
+    // ── Auto-Lock Inactivity Listener ──────────────────────────────────────────
+    let inactivityTimer;
+
+    const resetTimer = () => {
+      if (!useAuthStore.getState().isVaultUnlocked) return;
+      
+      if (inactivityTimer) clearTimeout(inactivityTimer);
+      
+      // Auto-lock after 5 minutes of no mouse/keyboard interaction
+      inactivityTimer = setTimeout(() => {
+        lockVault();
+        // Don't toast here as it might be annoying, but good for debug
+      }, 5 * 60 * 1000); 
+    };
+
+    if (isVaultUnlocked) {
+      window.addEventListener('mousemove', resetTimer);
+      window.addEventListener('keydown', resetTimer);
+      resetTimer();
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', resetTimer);
+      window.removeEventListener('keydown', resetTimer);
+      if (inactivityTimer) clearTimeout(inactivityTimer);
+    };
+  }, [isVaultUnlocked, lockVault]);
 
   useEffect(() => {
     // Attempt to silently refresh token on app load to restore session

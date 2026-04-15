@@ -6,17 +6,23 @@ import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import QRCode from 'react-qr-code';
+import { useAuthStore } from '../store/useAuthStore';
+import PinModal from '../components/PinModal';
 
 export default function IDCards() {
   const queryClient = useQueryClient();
   const [flippedCards, setFlippedCards] = useState({});
+  const isVaultUnlocked = useAuthStore((state) => state.isVaultUnlocked);
+  const [showPinModal, setShowPinModal] = useState(false);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ['idcards'],
     queryFn: async () => {
       const res = await api.get('/idcards?limit=50');
       return res.data?.data?.cards || [];
-    }
+    },
+    // Don't auto-fetch if vault is locked to avoid 403s
+    enabled: isVaultUnlocked
   });
 
   const generateQRMutation = useMutation({
@@ -93,6 +99,20 @@ export default function IDCards() {
             <Plus size={16} /> Add ID Card
           </Link>
         </div>
+      ) : !isVaultUnlocked ? (
+        <div className="bg-white dark:bg-slate-800 rounded-3xl p-12 text-center border-2 border-dashed border-slate-200 dark:border-slate-700">
+           <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Plus className="text-slate-400 rotate-45" size={32} />
+           </div>
+           <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Vault is Locked</h3>
+           <p className="text-slate-500 dark:text-slate-400 mb-6">Enter your security PIN to view and manage your digital ID cards.</p>
+           <button 
+             onClick={() => setShowPinModal(true)}
+             className="bg-primary-600 hover:bg-primary-700 text-white font-bold py-3 px-8 rounded-2xl shadow-xl transition-all"
+           >
+             Unlock with PIN
+           </button>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative" style={{ perspective: '1000px' }}>
           {data?.map(card => (
@@ -165,6 +185,15 @@ export default function IDCards() {
             </div>
           ))}
         </div>
+      )}
+
+      {showPinModal && (
+        <PinModal
+          onSuccess={() => {
+            setShowPinModal(false);
+          }}
+          onClose={() => setShowPinModal(false)}
+        />
       )}
     </div>
   );

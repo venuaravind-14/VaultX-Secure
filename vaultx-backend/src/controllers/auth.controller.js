@@ -16,6 +16,7 @@ const {
   clearAuthCookies,
   generatePasswordResetToken,
   hashPasswordResetToken,
+  generateVaultToken,
 } = require('../middleware/auth');
 const {
   hashPassword,
@@ -352,7 +353,13 @@ const verifyPin = asyncHandler(async (req, res) => {
     return sendError(res, { statusCode: 401, message: 'Incorrect PIN' });
   }
 
-  return sendSuccess(res, { message: 'PIN verified successfully' });
+  // Generate short-lived vault access token (5 mins)
+  const vaultToken = generateVaultToken(user._id);
+
+  return sendSuccess(res, { 
+    message: 'PIN verified successfully',
+    data: { vault_token: vaultToken }
+  });
 });
 
 // ── Google OAuth Callback Handler ─────────────────────────────────────────────

@@ -19,14 +19,18 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     } else if (!isPublicRoute) {
-      // If we are trying to access a protected route without a token, 
-      // we might be in a race condition or lost session.
-      // Returning Promise.reject here stops the request before it hits the backend.
       return Promise.reject({ 
         message: 'No authorization token available',
         config 
       });
     }
+
+    // Attach Vault Token if available
+    const vaultToken = useAuthStore.getState().vaultToken;
+    if (vaultToken) {
+      config.headers['X-Vault-Token'] = vaultToken;
+    }
+
     return config;
   },
   (error) => Promise.reject(error)
@@ -40,8 +44,19 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
+    // Handle Vault Locked (403 with specific flag)
+    if (error.response?.status === 403 && error.response.data?.vaultLocked) {
+      // Clear expired vault token from state
+      useAuthStore.getState().lockVault();
+      
+      // The individual page/action will handle showing the PIN modal
+      // We don't toast here to avoid multiple toasts for parallel requests
+      return Promise.reject(error);
+    }
+
     // If error is 401 and we haven't retried yet
     if (error.response?.status === 401 && !originalRequest._retry) {
+// ...
       // Prevent infinite loops if the refresh endpoint itself fails
       if (originalRequest.url.includes('/auth/refresh') || originalRequest.url.includes('/auth/login')) {
         useAuthStore.getState().logout(true);

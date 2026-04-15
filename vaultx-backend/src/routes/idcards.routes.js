@@ -6,12 +6,13 @@ const router = express.Router();
 const {
   createIDCard, listIDCards, getIDCard, updateIDCard, deleteIDCard,
 } = require('../controllers/idcards.controller');
-const { protect } = require('../middleware/auth');
+const { protect, protectVault } = require('../middleware/auth');
 const {
   validateCreateIDCard, validateUpdateIDCard, validatePagination,
 } = require('../middleware/validate');
 
 router.use(protect);
+router.use(protectVault);
 
 router.post('/',     validateCreateIDCard, createIDCard);
 router.get('/',      validatePagination,   listIDCards);

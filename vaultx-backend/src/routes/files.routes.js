@@ -6,7 +6,7 @@ const router = express.Router();
 const {
   uploadFile, listFiles, getFileInfo, downloadFile, deleteFile,
 } = require('../controllers/files.controller');
-const { protect } = require('../middleware/auth');
+const { protect, protectVault } = require('../middleware/auth');
 const { uploadSingle } = require('../middleware/upload');
 const { validatePagination } = require('../middleware/validate');
 
@@ -16,7 +16,7 @@ router.use(protect);
 router.post('/',        uploadSingle, uploadFile);
 router.get('/',         validatePagination, listFiles);
 router.get('/:id/info', getFileInfo);
-router.get('/:id',      downloadFile);
-router.delete('/:id',   deleteFile);
+router.get('/:id',      protectVault, downloadFile);
+router.delete('/:id',   protectVault, deleteFile);
 
 module.exports = router;

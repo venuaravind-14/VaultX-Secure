@@ -10,6 +10,8 @@ import {
 import toast from 'react-hot-toast';
 import { formatDistanceToNow, format } from 'date-fns';
 import ShareModal from '../components/ShareModal';
+import PinModal from '../components/PinModal';
+import { useAuthStore } from '../store/useAuthStore';
 
 // All MIME types the backend accepts
 const ACCEPTED_TYPES = {
@@ -75,6 +77,21 @@ export default function Files() {
   const [shareModalFile, setShareModalFile] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [downloadingId, setDownloadingId] = useState(null);
+  const isVaultUnlocked = useAuthStore((state) => state.isVaultUnlocked);
+  
+  // Vault PIN state
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null);
+
+  // Helper to ensure vault is unlocked before performing sensitive actions
+  const requireVault = (action) => {
+    if (isVaultUnlocked) {
+      action();
+    } else {
+      setPendingAction(() => action);
+      setShowPinModal(true);
+    }
+  };
 
   const {
     data: filesData,
@@ -135,36 +152,40 @@ export default function Files() {
   });
 
   const handleDownload = async (file) => {
-    setDownloadingId(file._id);
-    const toastId = toast.loading(`Decrypting "${file.original_name}"...`);
-    try {
-      const response = await api.get(`/files/${file._id}`, {
-        responseType: 'blob',
-        timeout: 120_000,
-      });
+    requireVault(async () => {
+      setDownloadingId(file._id);
+      const toastId = toast.loading(`Decrypting "${file.original_name}"...`);
+      try {
+        const response = await api.get(`/files/${file._id}`, {
+          responseType: 'blob',
+          timeout: 120_000,
+        });
 
-      const contentType = response.headers['content-type'] || file.mime_type || 'application/octet-stream';
-      const blob = new Blob([response.data], { type: contentType });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = file.original_name;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      toast.success('Download complete', { id: toastId });
-    } catch (err) {
-      const msg = err.response?.data?.message || 'Download failed';
-      toast.error(msg, { id: toastId });
-    } finally {
-      setDownloadingId(null);
-    }
+        const contentType = response.headers['content-type'] || file.mime_type || 'application/octet-stream';
+        const blob = new Blob([response.data], { type: contentType });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = file.original_name;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        toast.success('Download complete', { id: toastId });
+      } catch (err) {
+        const msg = err.response?.data?.message || 'Download failed';
+        toast.error(msg, { id: toastId });
+      } finally {
+        setDownloadingId(null);
+      }
+    });
   };
 
   const handleDelete = (file) => {
-    if (!window.confirm(`Delete "${file.original_name}"? This cannot be undone.`)) return;
-    deleteMutation.mutate(file._id);
+    requireVault(() => {
+      if (!window.confirm(`Delete "${file.original_name}"? This cannot be undone.`)) return;
+      deleteMutation.mutate(file._id);
+    });
   };
 
   const onDrop = useCallback((acceptedFiles, rejections) => {
@@ -376,7 +397,7 @@ export default function Files() {
 
                   {/* Share */}
                   <button
-                    onClick={() => setShareModalFile(file)}
+                    onClick={() => requireVault(() => setShareModalFile(file))}
                     title="Generate share link"
                     className="p-2 text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/30 rounded-lg transition-colors"
                   >
@@ -406,6 +427,22 @@ export default function Files() {
         <ShareModal
           file={shareModalFile}
           onClose={() => setShareModalFile(null)}
+        />
+      )}
+
+      {showPinModal && (
+        <PinModal
+          onSuccess={() => {
+            setShowPinModal(false);
+            if (pendingAction) {
+              pendingAction();
+              setPendingAction(null);
+            }
+          }}
+          onClose={() => {
+            setShowPinModal(false);
+            setPendingAction(null);
+          }}
         />
       )}
     </div>

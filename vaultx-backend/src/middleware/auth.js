@@ -632,6 +632,61 @@ function generateAccessToken(userId) {
 }
 
 /**
+ * Generate a very short-lived JWT vault access token (5 min) after PIN verification.
+ * @param {string} userId
+ * @returns {string} signed JWT
+ */
+function generateVaultToken(userId) {
+  return jwt.sign(
+    { sub: userId.toString(), type: 'vault' },
+    process.env.JWT_ACCESS_SECRET,
+    { expiresIn: '5m' }
+  );
+}
+
+/**
+ * Middleware to protect high-sensitivity routes (download, sharing, IDs).
+ * Checks for X-Vault-Token header.
+ * Must be used AFTER protect().
+ */
+async function protectVault(req, res, next) {
+  try {
+    const vaultHeader = req.headers['x-vault-token'];
+
+    if (!vaultHeader) {
+      return res.status(403).json({
+        success: false,
+        message: 'Vault is locked. PIN verification required.',
+        vaultLocked: true,
+      });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(vaultHeader, process.env.JWT_ACCESS_SECRET);
+    } catch (err) {
+      return res.status(403).json({
+        success: false,
+        message: 'Vault session expired. Please enter PIN again.',
+        vaultLocked: true,
+      });
+    }
+
+    if (decoded.type !== 'vault' || decoded.sub !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Invalid vault session',
+        vaultLocked: true,
+      });
+    }
+
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
  * Generate a long-lived JWT refresh token (7 days).
  * Only the HASH of this is stored in the DB.
  * @param {string} userId
@@ -769,4 +824,8 @@ module.exports = {
   // Utilities
   getClientIP,
   asyncHandler,
+
+  // Vault
+  generateVaultToken,
+  protectVault,
 };
