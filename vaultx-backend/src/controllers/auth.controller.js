@@ -116,16 +116,7 @@ const login = asyncHandler(async (req, res) => {
     throw err;
   }
 });
-  setAuthCookies(res, accessToken, refreshToken);
 
-  return sendSuccess(res, {
-    message: 'Login successful',
-    data: {
-      user: user.toJSON(),
-      access_token: accessToken,
-    },
-  });
-});
 
 // ── Logout ────────────────────────────────────────────────────────────────────
 const logout = asyncHandler(async (req, res) => {
