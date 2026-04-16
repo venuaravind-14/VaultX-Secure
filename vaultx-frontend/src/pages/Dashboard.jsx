@@ -118,8 +118,8 @@ export default function Dashboard() {
                     <span className="font-bold text-slate-800 dark:text-slate-200 truncate">{f.original_name}</span>
                     <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{(f.size_bytes / 1024).toFixed(1)} KB • {formatDistanceToNow(new Date(f.created_at), { addSuffix: true })}</span>
                   </div>
-                  <div className="px-2.5 py-1 bg-white dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 text-[10px] font-black text-slate-500 uppercase">
-                    {f.mime_type.split('/')[1] || 'FILE'}
+                   <div className="px-2.5 py-1 bg-white dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 text-[10px] font-black text-slate-500 uppercase">
+                    {(f.mime_type || 'application/octet-stream').split('/')[1] || 'FILE'}
                   </div>
                 </div>
               ))
@@ -147,10 +147,10 @@ export default function Dashboard() {
                   <div className={`w-3 h-3 rounded-full flex-shrink-0 transition-transform group-hover:scale-125 ${log.success ? 'bg-success-500 shadow-sm shadow-success-500/50' : 'bg-danger-500'}`} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-slate-700 dark:text-slate-300 truncate">
-                      {log.action.replace(/_/g, ' ')}
+                      {(log.action || 'system_event').replace(/_/g, ' ')}
                     </p>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
-                      {formatDistanceToNow(new Date(log.timestamp), { addSuffix: true })} • {log.ip_address}
+                      {log.timestamp ? formatDistanceToNow(new Date(log.timestamp), { addSuffix: true }) : 'recent'} • {log.ip_address || 'unknown'}
                     </p>
                   </div>
                 </div>

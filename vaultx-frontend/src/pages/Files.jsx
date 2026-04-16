@@ -56,7 +56,7 @@ const formatBytes = (bytes) => {
 
 const getFileTypeBadge = (mimeType) => {
   if (!mimeType) return 'FILE';
-  const parts = mimeType.split('/');
+  const parts = String(mimeType).split('/');
   const ext = parts.pop().toUpperCase();
   if (ext.length > 5) return ext.slice(0, 4);
   return ext;
@@ -191,7 +191,7 @@ export default function Files() {
   });
 
   const filteredFiles = (filesData || []).filter(f =>
-    !searchTerm || f.original_name.toLowerCase().includes(searchTerm.toLowerCase())
+    !searchTerm || (f.original_name || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -314,7 +314,9 @@ export default function Files() {
                       <span className="text-[10px] text-slate-400">•</span>
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{formatBytes(file.size_bytes)}</span>
                       <span className="text-[10px] text-slate-400">•</span>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{formatDistanceToNow(new Date(file.created_at), { addSuffix: true })}</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                        {file.created_at ? formatDistanceToNow(new Date(file.created_at), { addSuffix: true }) : 'recent'}
+                      </span>
                     </div>
                   </div>
                 </div>

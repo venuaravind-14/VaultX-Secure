@@ -60,10 +60,10 @@ export default function AuditLog() {
                   data?.logs?.map((log) => (
                     <tr key={log._id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/10 transition-colors">
                       <td className="p-6 text-sm whitespace-nowrap text-slate-500 dark:text-slate-400 font-medium">
-                        {format(new Date(log.timestamp), 'MMM d, HH:mm:ss')}
+                        {log.timestamp ? format(new Date(log.timestamp), 'MMM d, HH:mm:ss') : 'recent'}
                       </td>
                       <td className="p-6 text-sm font-black text-slate-800 dark:text-slate-100 whitespace-nowrap uppercase tracking-tight">
-                        {log.action.replace(/_/g, ' ')}
+                        {(log.action || 'system_event').replace(/_/g, ' ')}
                       </td>
                       <td className="p-6">
                         <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black tracking-widest ${
