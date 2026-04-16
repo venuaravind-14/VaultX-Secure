@@ -107,10 +107,22 @@ app.get('/health', (req, res) => {
 });
 
 // ── API Routes ─────────────────────────────────────────────────────────────────
+app.get('/', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'VaultX Secure API Gateway — Protection Active',
+    version: '1.0.0',
+    documentation: '/health'
+  });
+});
+
 app.use('/api', routes);
 
 // ── 404 Handler ────────────────────────────────────────────────────────────────
-app.use(notFound);
+app.use((req, res, next) => {
+  logger.warn('Route not found', { path: req.path, method: req.method, ip: req.ip });
+  notFound(req, res);
+});
 
 // ── Global Error Handler (must be last) ───────────────────────────────────────
 app.use(errorHandler);
