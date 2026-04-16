@@ -120,7 +120,7 @@ export default function IDCards() {
                   
                   <div className="flex justify-between items-start relative z-10">
                     <div className="opacity-90 uppercase tracking-[0.2em] text-[10px] font-black bg-white/20 px-3 py-1 rounded-full backdrop-blur-md">
-                      {(card.card_type || 'other').replace('_', ' ')}
+                      {String(card.card_type || 'other').replace('_', ' ')}
                     </div>
                     <button 
                       onClick={(e) => { 
@@ -134,8 +134,8 @@ export default function IDCards() {
                   </div>
 
                   <div className="relative z-10">
-                    <h2 className="text-2xl font-black tracking-tight leading-none mb-1">{card.card_holder_name}</h2>
-                    <p className="text-sm font-medium opacity-70 uppercase tracking-widest">{card.issuer}</p>
+                    <h2 className="text-2xl font-black tracking-tight leading-none mb-1">{card.card_holder_name || 'N/A'}</h2>
+                    <p className="text-sm font-medium opacity-70 uppercase tracking-widest">{card.issuer || 'N/A'}</p>
                   </div>
 
                   <div className="flex justify-between items-end relative z-10">
@@ -145,7 +145,7 @@ export default function IDCards() {
                     <div className="text-right">
                       <p className="text-[10px] uppercase font-bold opacity-60">Expires</p>
                       <p className="text-sm font-black mt-0.5 tracking-tighter">
-                        {format(new Date(card.expiry_date), 'MM / yy')}
+                        {card.expiry_date ? format(new Date(card.expiry_date), 'MM / yy') : '-- / --'}
                       </p>
                     </div>
                   </div>

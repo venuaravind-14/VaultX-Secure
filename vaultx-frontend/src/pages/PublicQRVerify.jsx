@@ -106,7 +106,7 @@ export default function PublicQRVerify() {
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 text-success-600 font-semibold bg-success-50 px-3 py-2 rounded-lg">
-                        <CheckCircle2 size={18} /> ACTIVE (Valid until {format(new Date(data.expiry_date), 'MM/yy')})
+                        <CheckCircle2 size={18} /> ACTIVE (Valid until {data.expiry_date ? format(new Date(data.expiry_date), 'MM/yy') : 'N/A'})
                       </div>
                     )}
                   </div>

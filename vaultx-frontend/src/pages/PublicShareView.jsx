@@ -175,7 +175,7 @@ export default function PublicShareView() {
                 <div className="flex justify-between">
                   <span className="text-slate-500 flex items-center gap-1.5"><Clock size={13} /> Expires</span>
                   <span className="font-medium text-slate-900 dark:text-white">
-                    {new Date(linkInfo.expiry_at).toLocaleString()}
+                    {linkInfo.expiry_at ? new Date(linkInfo.expiry_at).toLocaleString() : 'No expiry'}
                   </span>
                 </div>
                 <div className="flex justify-between">
