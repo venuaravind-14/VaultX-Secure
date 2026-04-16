@@ -44,6 +44,7 @@ function App() {
   // Unified Session Restoration
   useEffect(() => {
     const restoreSession = async () => {
+      console.log('Establishing secure session with VaultX API Gateway:', api.defaults.baseURL);
       try {
         const refreshRes = await api.post('/auth/refresh');
         
