@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from 'https://esm.sh/@tanstack/react-query@5';
+import { useQuery, useMutation, useQueryClient } from 'https://esm.sh/@tanstack/react-query@5?external=react,react-dom';
 import { useDropzone } from 'react-dropzone';
 import { api } from '../api/axios';
 import {

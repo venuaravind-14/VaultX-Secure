@@ -1,4 +1,4 @@
-import { useQuery } from 'https://esm.sh/@tanstack/react-query@5';
+import { useQuery } from 'https://esm.sh/@tanstack/react-query@5?external=react,react-dom';
 import { Activity, ShieldCheck, FileKey, Link as LinkIcon, ServerCrash, Loader2, ArrowRight } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { api } from '../api/axios';

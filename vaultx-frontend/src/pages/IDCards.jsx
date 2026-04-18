@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from 'https://esm.sh/@tanstack/react-query@5';
+import { useQuery, useMutation, useQueryClient } from 'https://esm.sh/@tanstack/react-query@5?external=react,react-dom';
 import { api } from '../api/axios';
 import { Plus, CreditCard, Trash2, ShieldCheck, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
