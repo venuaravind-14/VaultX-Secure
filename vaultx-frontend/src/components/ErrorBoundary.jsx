@@ -4,11 +4,11 @@ import { ServerCrash, RotateCcw } from 'lucide-react';
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, error: null };
   }
 
-  static getDerivedStateFromError() {
-    return { hasError: true };
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
   }
 
   componentDidCatch(error, errorInfo) {
@@ -23,9 +23,16 @@ class ErrorBoundary extends React.Component {
             <ServerCrash size={48} />
           </div>
           <h1 className="text-4xl font-black text-slate-900 dark:text-white mb-4 tracking-tight">System Interruption</h1>
-          <p className="text-slate-500 dark:text-slate-400 max-w-md mb-8 leading-relaxed">
-            A critical UI failure occurred within the secure environment. Your data remains encrypted and safe, but the interface needs to be restored.
+          <p className="text-slate-500 dark:text-slate-400 max-w-md mb-2 leading-relaxed">
+            A critical UI failure occurred within the secure environment.
           </p>
+          
+          {this.state.error && (
+            <div className="bg-slate-200/50 dark:bg-slate-800/50 p-4 rounded-xl mb-8 font-mono text-xs text-danger-600 dark:text-danger-400 max-w-lg overflow-auto">
+              {this.state.error.name}: {this.state.error.message}
+            </div>
+          )}
+
           <button
             onClick={() => window.location.href = '/'}
             className="flex items-center gap-3 bg-slate-900 hover:bg-slate-800 dark:bg-primary-600 dark:hover:bg-primary-500 text-white font-bold py-4 px-10 rounded-2xl transition-all shadow-2xl active:scale-95 group"

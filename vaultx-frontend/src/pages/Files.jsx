@@ -301,7 +301,7 @@ export default function Files() {
           </div>
         ) : (
           <ul className="divide-y divide-slate-100 dark:divide-slate-700/40">
-            {filteredFiles.map(file => (
+            {Array.isArray(filteredFiles) && filteredFiles.map(file => (
               <li key={file._id} className="px-4 py-3.5 hover:bg-slate-50 dark:hover:bg-slate-700/20 transition-colors flex items-center justify-between gap-4 group">
                 <div className="flex items-center gap-4 min-w-0 flex-1">
                   <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">

@@ -52,12 +52,12 @@ export default function AuditLog() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                {data?.logs?.length === 0 ? (
+                {data?.logs?.length === 0 || !Array.isArray(data?.logs) ? (
                   <tr>
                     <td colSpan="4" className="text-center py-20 text-slate-500 font-medium">No activity recorded in this sector yet.</td>
                   </tr>
                 ) : (
-                  data?.logs?.map((log) => (
+                  data.logs.map((log) => (
                     <tr key={log._id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/10 transition-colors">
                       <td className="p-6 text-sm whitespace-nowrap text-slate-500 dark:text-slate-400 font-medium">
                         {log.timestamp ? format(new Date(log.timestamp), 'MMM d, HH:mm:ss') : 'recent'}

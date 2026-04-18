@@ -108,7 +108,7 @@ export default function IDCards() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" style={{ perspective: '1200px' }}>
-          {data?.map(card => (
+          {Array.isArray(data) && data.map(card => (
             <div key={card._id} className="relative h-60 w-full group" style={{ perspective: '1200px' }}>
               <div 
                 className={`w-full h-full transition-all duration-700 style-preserve-3d shadow-xl rounded-[2rem] cursor-pointer ${flippedCards[card._id]?.isFlipped ? 'rotate-y-180' : ''}`}

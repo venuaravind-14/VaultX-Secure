@@ -111,13 +111,13 @@ export default function Dashboard() {
           </div>
           
           <div className="space-y-3 flex-1">
-            {data?.files?.files?.length > 0 ? (
+            {data?.files?.files && Array.isArray(data.files.files) && data.files.files.length > 0 ? (
               data.files.files.slice(0, 4).map((f) => (
                 <div key={f._id} className="flex justify-between items-center bg-slate-50 dark:bg-slate-900/30 p-4 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-900/50 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700">
                   <div className="flex flex-col min-w-0">
-                    <span className="font-bold text-slate-800 dark:text-slate-200 truncate">{f.original_name}</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200 truncate">{f.original_name || 'Unnamed Artifact'}</span>
                     <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">
-                      {(f.size_bytes / 1024).toFixed(1)} KB • {f.created_at ? formatDistanceToNow(new Date(f.created_at), { addSuffix: true }) : 'recent'}
+                      {f.size_bytes ? (f.size_bytes / 1024).toFixed(1) : '0'} KB • {f.created_at ? formatDistanceToNow(new Date(f.created_at), { addSuffix: true }) : 'recent'}
                     </span>
                   </div>
                   <div className="px-2.5 py-1 bg-white dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 text-[10px] font-black text-slate-500 uppercase">
@@ -143,7 +143,7 @@ export default function Dashboard() {
           </div>
 
           <div className="space-y-4 flex-1">
-            {data?.recentAudits?.length > 0 ? (
+            {data?.recentAudits && Array.isArray(data.recentAudits) && data.recentAudits.length > 0 ? (
               data.recentAudits.slice(0, 5).map((log) => (
                 <div key={log._id} className="flex items-center gap-4 group">
                   <div className={`w-3 h-3 rounded-full flex-shrink-0 transition-transform group-hover:scale-125 ${log.success ? 'bg-success-500 shadow-sm shadow-success-500/50' : 'bg-danger-500'}`} />
