@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery } from 'https://esm.sh/@tanstack/react-query@5';
 import { api } from '../api/axios';
 import { Activity, ServerCrash, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
